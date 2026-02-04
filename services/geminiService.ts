@@ -79,47 +79,46 @@ export const analyzeScholarPublications = async (
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `You are analyzing the research profile of "${name}" based on their Google Scholar publications.
-
-**Publications (up to 200):**
+      contents: `You are a STRICT research analyst evaluating a researcher's profile against specific user interests.
+      
+**Researcher Profile:** "${name}"
+**Publications (Recent 50):**
 ${publicationsList}
 
 ${hasUserInterests ? `**User's Research Interests:** ${userInterests}` : ''}
 
 **Your Tasks:**
-1. Write a 2-3 sentence summary of their overall research focus
+1. Write a 2-3 sentence summary of their overall research focus.
 ${hasUserInterests ? `
-2. Identify 3-5 SPECIFIC research keywords that MATCH the user's interests
-3. For EACH keyword, provide:
-   - Why it matches the user's interests
-   - List of 2-4 supporting publications (with title, year, citations)
-4. Only include keywords that have semantic relevance to "${userInterests}"
+2. **SEMANTIC MATCHING VERIFICATION:**
+   - Go through the User's Research Interests one by one.
+   - For EACH interest, check if the researcher has published work addressing it.
+   - Be flexible with wording (e.g. "MRI" matches "Medical Imaging").
+   - **CRITICAL:** Return a list of EXACTLY which user interests were matched.
+
+3. Provide evidence:
+   - Identify 3-5 specific matching keywords.
+   - For each keyword, provide reasoning and 2-4 supporting publications.
 ` : `
-2. Identify 3-5 main research keywords
-3. For each keyword, list 2-4 supporting publications
+2. Identify 3-5 main research keywords.
+3. For each keyword, list 2-4 supporting publications.
 `}
 
 Return the result in the following JSON format:
 {
-  "summary": "A 2-3 sentence summary highlighting their main research areas.",
+  "summary": "Summary of research focus.",
   "keywords": [
     {
-      "keyword": "Research Topic Name",
-      "reasoning": "${hasUserInterests ? 'Explain how this relates to user interests' : 'Why this is a key research area'}",
-      "supportingPapers": [
-        {
-          "title": "Paper Title",
-          "year": "2024",
-          "citations": 50
-        }
-      ]
+      "keyword": "Specific Topic",
+      "reasoning": "Direct evidence of match...",
+      "supportingPapers": [{"title": "...", "year": "...", "citations": 0}]
     }
   ],
-  "isMatch": ${hasUserInterests ? 'boolean (true if keywords match user interests)' : 'false'},
-  "matchReason": "${hasUserInterests ? 'Brief explanation of the overall match' : 'null'}"
+  "matched_user_interests": ${hasUserInterests ? '["Interest 1", "Interest 2"]' : '[]'},
+  "matchReason": "${hasUserInterests ? 'Explain the match (e.g. "Covered 2/3 interests: AI and Imaging")' : 'null'}"
 }
 
-IMPORTANT: ${hasUserInterests ? 'ONLY return keywords that are semantically related to the user interests. If no strong matches exist, return an empty keywords array.' : 'Return the most prominent research themes.'}`,
+IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interests" if there is clear evidence.' : 'Return the most prominent research themes.'}`,
       config: {
         responseMimeType: "application/json",
       }
@@ -128,12 +127,58 @@ IMPORTANT: ${hasUserInterests ? 'ONLY return keywords that are semantically rela
     const jsonStr = response.text || "{}";
     const parsed = JSON.parse(jsonStr);
 
+    // --- Deterministic Match Logic ---
+    let matchType = 'NONE';
+    let isMatch = false;
+
+    if (hasUserInterests) {
+      // 1. Parse user input into distinct concepts (comma separated)
+      const userConcepts = userInterests.split(/[,;]+/).map(s => s.trim().toLowerCase()).filter(s => s.length > 0);
+      const totalConcepts = userConcepts.length;
+
+      // 2. Count matches returned by Gemini
+      const matchedList = Array.isArray(parsed.matched_user_interests) ? parsed.matched_user_interests : [];
+      const matchCount = matchedList.length;
+
+      // 3. Apply STRICT rules
+      if (matchCount >= 2) {
+         if (matchCount >= totalConcepts && totalConcepts >= 2) {
+           matchType = 'FULL';
+         } else if (matchCount >= 3) {
+           matchType = 'PARTIAL'; // 3+ but not all
+         } else {
+           matchType = 'LOW'; // Exact 2 matches
+         }
+         isMatch = true;
+      } else {
+        matchType = 'NONE'; // 0 or 1 match
+        isMatch = false;
+      }
+
+      // Special case: Single concept entered by user
+      if (totalConcepts === 1 && matchCount === 1) {
+         // If user only typed 1 thing, we allow it (though UI might say LOW or PARTIAL?)
+         // Let's call it LOW for now to ensure it shows up, or NONE if we strictly want 2+ logic?
+         // User Rule: "Low Match (2个), 只有1个也不算match" -> So 1 match is NONE unless...
+         // Actually, if user ONLY asked for 1 thing, it's impossible to get 2 matches.
+         // Assumption: User usually inputs multiple. If they input 1, we should probably show it.
+         // But sticking to USER REQUEST: "只有1个也不算match" (likely in context of multiple).
+         // Let's assume strict 2+ rule applies. But if Total=1, we can't match 2.
+         // Logic: If TotalConcepts == 1, then 1 match is FULL.
+         if (totalConcepts === 1) {
+             matchType = 'FULL';
+             isMatch = true;
+         }
+      }
+    }
+
     return {
       summary: parsed.summary || "No summary available.",
       keywords: parsed.keywords || [],
       url: scholarData.articles[0]?.citation ? 
         `https://scholar.google.com/citations?user=${name}` : undefined,
-      isMatch: !!parsed.isMatch,
+      isMatch: isMatch,
+      matchType: matchType as any,
       matchReason: parsed.matchReason || undefined
     };
 

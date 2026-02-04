@@ -1,20 +1,50 @@
 import React, { useState, useRef } from 'react';
 import { Researcher, AnalysisStatus } from '../types';
 import { generateScholarSearchUrl } from '../services/serpApiService';
-import { ExternalLink, User, BrainCircuit, Tag, Sparkles, Search, Clipboard } from 'lucide-react';
+import { ExternalLink, User, BrainCircuit, Tag, Sparkles, Search, Clipboard, Star, RotateCw } from 'lucide-react';
 
 interface ResultsGridProps {
   researchers: Researcher[];
   onScholarIdSubmit: (researcherId: string, scholarId: string) => void;
+  onToggleFavorite: (id: string) => void;
 }
 
-export const ResultsGrid: React.FC<ResultsGridProps> = ({ researchers, onScholarIdSubmit }) => {
+export const ResultsGrid: React.FC<ResultsGridProps> = ({ researchers, onScholarIdSubmit, onToggleFavorite }) => {
   if (researchers.length === 0) return null;
 
-  // Sort matches to the top once completed
+  // Sort logic:
+  // 1. Processing needed (No Scholar ID) -> TOP
+  // 2. Processed (Has Scholar ID) -> BOTTOM
+  // 3. Within groups: High Match > Partial Match > No Match
   const sortedResearchers = [...researchers].sort((a, b) => {
-    if (a.isMatch && !b.isMatch) return -1;
-    if (!a.isMatch && b.isMatch) return 1;
+    // Priority 1: Favorites always at very top
+    // Priority 1: Favorites always at very top
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+
+    // Priority 2: Status (Show "Awaiting ID" first, "Completed/Ready" last)
+    const aHasId = !!a.scholarAuthorId;
+    const bHasId = !!b.scholarAuthorId;
+    
+    if (aHasId !== bHasId) {
+      return aHasId ? 1 : -1; // If a has ID, it goes to bottom (1)
+    }
+
+    // Priority 3: Matches (within same group)
+    // Full (All) > Partial (3+) > Low (2) > None
+    const getMatchScore = (r: Researcher) => {
+      if (!r.isMatch) return 0;
+      if (r.matchType === 'FULL') return 3;
+      if (r.matchType === 'PARTIAL') return 2;
+      if (r.matchType === 'LOW') return 1;
+      return 0.5; // Legacy match without type
+    };
+
+    const scoreA = getMatchScore(a);
+    const scoreB = getMatchScore(b);
+
+    if (scoreA !== scoreB) return scoreB - scoreA; // Descending score
+    
     return 0;
   });
 
@@ -25,6 +55,7 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ researchers, onScholar
           key={researcher.id} 
           data={researcher} 
           onScholarIdSubmit={onScholarIdSubmit}
+          onToggleFavorite={onToggleFavorite}
         />
       ))}
     </div>
@@ -34,7 +65,8 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ researchers, onScholar
 const ResearcherCard: React.FC<{ 
   data: Researcher;
   onScholarIdSubmit: (researcherId: string, scholarId: string) => void;
-}> = ({ data, onScholarIdSubmit }) => {
+  onToggleFavorite: (id: string) => void;
+}> = ({ data, onScholarIdSubmit, onToggleFavorite }) => {
   const [scholarIdInput, setScholarIdInput] = useState('');
   
   const isPending = data.status === AnalysisStatus.PENDING;
@@ -43,6 +75,9 @@ const ResearcherCard: React.FC<{
   const isError = data.status === AnalysisStatus.ERROR;
   const isCompleted = data.status === AnalysisStatus.COMPLETED;
   const isMatch = isCompleted && data.isMatch;
+  const isFullMatch = data.matchType === 'FULL';
+  const isPartialMatch = data.matchType === 'PARTIAL';
+  const isLowMatch = data.matchType === 'LOW';
 
   // Store reference to Scholar window to reuse it
   const scholarWindowRef = useRef<Window | null>(null);
@@ -74,23 +109,48 @@ const ResearcherCard: React.FC<{
     <div className={`
       relative flex flex-col h-full bg-white rounded-xl shadow-sm border transition-all duration-300
       ${isLoading ? 'border-imperial-accent ring-1 ring-imperial-accent shadow-md scale-[1.01]' : ''}
-      ${isMatch ? 'border-amber-400 ring-1 ring-amber-400 shadow-md' : 'border-slate-200 hover:shadow-md'}
+      ${isFullMatch ? 'border-purple-400 ring-2 ring-purple-400 shadow-md bg-purple-50/10' : ''}
+      ${isPartialMatch ? 'border-emerald-400 ring-1 ring-emerald-400 shadow-md' : ''}
+      ${isLowMatch ? 'border-blue-400 ring-1 ring-blue-400 shadow-md' : ''}
+      ${!isMatch && isCompleted ? 'border-slate-200 hover:shadow-md' : ''}
+      ${!isCompleted && !isError ? 'border-slate-200 hover:shadow-md' : ''}
       ${isError ? 'border-red-200' : ''}
     `}>
       {/* Match Badge */}
-      {isMatch && (
-        <div className="absolute -top-3 -right-2 bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-200 shadow-sm flex items-center gap-1 z-10">
-          <Sparkles className="w-3 h-3 fill-amber-500 text-amber-500" />
-          Smart Match
+      {isFullMatch && (
+        <div className="absolute -top-3 -right-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 shadow-sm flex items-center gap-1 z-10">
+          <Sparkles className="w-3 h-3 fill-purple-500 text-purple-500" />
+          All Match
+        </div>
+      )}
+      {isPartialMatch && (
+        <div className="absolute -top-3 -right-2 bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200 shadow-sm flex items-center gap-1 z-10">
+          <Sparkles className="w-3 h-3 fill-emerald-500 text-emerald-500" />
+          Partial Match
+        </div>
+      )}
+      {isLowMatch && (
+        <div className="absolute -top-3 -right-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-200 shadow-sm flex items-center gap-1 z-10">
+          <Sparkles className="w-3 h-3 text-blue-500" />
+          Low Match
         </div>
       )}
 
       {/* Header */}
-      <div className={`p-5 border-b flex items-start justify-between gap-4 ${isMatch ? 'bg-amber-50/30 border-amber-100' : 'border-slate-100'}`}>
+      <div className={`p-5 border-b flex items-start justify-between gap-4 
+        ${isFullMatch ? 'bg-purple-50/50 border-purple-200' : ''}
+        ${isPartialMatch ? 'bg-emerald-50/30 border-emerald-100' : ''}
+        ${isLowMatch ? 'bg-blue-50/30 border-blue-100' : ''}
+        ${!isMatch ? 'border-slate-100' : ''}
+      `}>
         <div className="flex items-center gap-3">
           <div className={`
             w-10 h-10 rounded-full flex items-center justify-center shrink-0
-            ${isMatch ? 'bg-amber-100 text-amber-600' : isCompleted ? 'bg-imperial-light text-imperial-blue' : 'bg-slate-100 text-slate-400'}
+            ${isFullMatch ? 'bg-purple-100 text-purple-600' : ''}
+            ${isPartialMatch ? 'bg-emerald-100 text-emerald-600' : ''}
+            ${isLowMatch ? 'bg-blue-100 text-blue-600' : ''}
+            ${!isMatch && isCompleted ? 'bg-imperial-light text-imperial-blue' : ''}
+            ${!isCompleted ? 'bg-slate-100 text-slate-400' : ''}
           `}>
             <User className="w-5 h-5" />
           </div>
@@ -98,11 +158,23 @@ const ResearcherCard: React.FC<{
             <h4 className="font-bold text-slate-800 leading-tight line-clamp-2">{data.name}</h4>
             <div className="flex items-center gap-2 mt-1">
                <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full ${getStatusColor(data.status)}`}>
-                 {getStatusLabel(data.status)}
+                 <span className="text-xs text-slate-400 capitalize">{data.status.replace('_', ' ').toLowerCase()}</span>
                </span>
             </div>
           </div>
         </div>
+
+        {/* Favorite Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(data.id);
+          }}
+          className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
+          title={data.isFavorite ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Star className={`w-5 h-5 ${data.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-slate-300'}`} />
+        </button>
       </div>
 
       {/* Body */}
@@ -191,8 +263,20 @@ const ResearcherCard: React.FC<{
         )}
 
         {isError && (
-          <div className="text-red-500 text-sm py-4 text-center">
-            Unable to fetch research data.
+          <div className="flex flex-col items-center justify-center py-4 text-center">
+            <p className="text-red-500 text-sm mb-3">Unable to fetch research data.</p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (data.scholarAuthorId) {
+                   onScholarIdSubmit(data.id, data.scholarAuthorId);
+                }
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm rounded-lg transition-colors"
+            >
+              <RotateCw className="w-3 h-3" />
+              Retry Analysis
+            </button>
           </div>
         )}
 
@@ -204,7 +288,12 @@ const ResearcherCard: React.FC<{
             </div>
             
             {data.matchReason && isMatch && (
-               <div className="text-xs bg-amber-50 text-amber-800 p-2.5 rounded-md border border-amber-100 italic">
+               <div className={`text-xs p-2.5 rounded-md border italic
+                 ${isFullMatch ? 'bg-purple-50 text-purple-800 border-purple-100' : ''}
+                 ${isPartialMatch ? 'bg-emerald-50 text-emerald-800 border-emerald-100' : ''}
+                 ${isLowMatch ? 'bg-blue-50 text-blue-800 border-blue-100' : ''}
+                 ${!isFullMatch && !isPartialMatch && !isLowMatch ? 'bg-slate-50 text-slate-600 border-slate-100' : ''}
+               `}>
                  "{data.matchReason}"
                </div>
             )}

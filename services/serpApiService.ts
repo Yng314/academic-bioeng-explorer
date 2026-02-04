@@ -33,7 +33,8 @@ export async function fetchScholarPublications(authorId: string): Promise<Schola
   const params = new URLSearchParams({
     engine: 'google_scholar_author',
     author_id: authorId,
-    num: '200'
+    num: '50',
+    sort: 'pubdate'
     // API key will be added by the proxy
   });
 

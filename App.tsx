@@ -4,7 +4,7 @@ import { fetchScholarPublications } from './services/serpApiService';
 import { Researcher, AnalysisStatus } from './types';
 import { InputSection } from './components/InputSection';
 import { ResultsGrid } from './components/ResultsGrid';
-import { FlaskConical, Loader2, Play, Search, AlertCircle } from 'lucide-react';
+import { FlaskConical, AlertCircle, Loader2, Play, Search, Star, LayoutGrid, RotateCw } from 'lucide-react';
 
 export default function App() {
   const [userInterests, setUserInterests] = useState('');
@@ -15,6 +15,7 @@ export default function App() {
   const [currentAnalyzingName, setCurrentAnalyzingName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
 
   // LocalStorage persistence
   const [isInitialized, setIsInitialized] = useState(false);
@@ -146,6 +147,10 @@ export default function App() {
         userInterests
       );
 
+      if (result.summary === "Failed to analyze publications.") {
+        throw new Error("Failed to analyze publications. Please retry.");
+      }
+
       // Step 3: Update researcher with results
       setResearchers(prev => prev.map(r => 
         r.id === researcherId ? {
@@ -155,6 +160,7 @@ export default function App() {
           tags: result.keywords,
           profileUrl: `https://scholar.google.com/citations?user=${scholarId}`,
           isMatch: result.isMatch,
+          matchType: result.matchType,
           matchReason: result.matchReason
         } : r
       ));
@@ -169,6 +175,12 @@ export default function App() {
       setCurrentAnalyzingName(null);
     }
   }, [researchers, userInterests]);
+
+  const handleToggleFavorite = useCallback((id: string) => {
+    setResearchers(prev => prev.map(r => 
+      r.id === id ? { ...r, isFavorite: !r.isFavorite } : r
+    ));
+  }, []);
 
   // Batch analyze all researchers who have author IDs
   const handleAnalyzeAll = useCallback(async () => {
@@ -191,6 +203,30 @@ export default function App() {
     }
 
     console.log('[Web App] Batch analysis complete');
+    console.log('[Web App] Batch analysis complete');
+  }, [researchers, handleScholarIdSubmit]);
+
+  const handleRetryFailed = useCallback(async () => {
+    const failedResearchers = researchers.filter(r => r.status === AnalysisStatus.ERROR);
+    if (failedResearchers.length === 0) return;
+
+    // Reset status to AWAITING_SCHOLAR_ID if they have ID, or just keep ID if they have it
+    // Actually we want to retry the whole analysis process.
+    // If they have scholarAuthorId, we can just call handleScholarIdSubmit again.
+    
+    console.log(`[Web App] Retrying ${failedResearchers.length} failed analyses`);
+    
+    for (const r of failedResearchers) {
+      if (r.scholarAuthorId) {
+        // Reset to loading state first to show UI feedback
+        setResearchers(prev => prev.map(res => 
+           res.id === r.id ? { ...res, status: AnalysisStatus.LOADING } : res
+        ));
+        
+        await handleScholarIdSubmit(r.id, r.scholarAuthorId);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
   }, [researchers, handleScholarIdSubmit]);
 
   // Clear all data
@@ -202,22 +238,29 @@ export default function App() {
     console.log('[Web App] Clearing all data...');
     
     // Reset all state
-    setResearchers([]);
-    setUserInterests('');
+    // Reset all state but KEEP FAVORITES and USER INTERESTS
+    setResearchers(prev => prev.filter(r => r.isFavorite));
+    // setUserInterests(''); // Preserved per user request
+    setRawText('');
     setRawText('');
     setError(null);
     setCurrentAnalyzingName(null);
     setIsInitialized(false);
     setShowClearConfirm(false);
     
-    // Reset initialization flag
-    hasInitialized.current = false;
+    // Reset initialization flag (allow reload)
+    hasInitialized.current = true; // Actually we want to keep running, so true is fine, or false if we want full re-init?
+    // If we set researchers (even empty or filtered), we trigger the save effect immediately.
+    // So we don't need to manually clear localStorage, the effect will update it.
     
-    // Clear LocalStorage
-    localStorage.clear();
-    
-    console.log('[Web App] ✓ All data cleared successfully');
+    console.log('[Web App] ✓ Cleared non-favorites');
   }, []);
+
+  const displayedResearchers = viewMode === 'all' 
+    ? researchers 
+    : researchers.filter(r => r.isFavorite);
+    
+
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -233,14 +276,17 @@ export default function App() {
             </div>
             
             <p className="text-slate-600 mb-4">
-              This will permanently remove:
+              This will remove all non-favorite researchers and analysis results.
+              <br/>
+              <span className="font-semibold text-imperial-blue">
+                {researchers.filter(r => r.isFavorite).length} favorite(s) will be saved.
+              </span>
             </p>
             
             <ul className="text-sm text-slate-600 space-y-1 mb-6 ml-4">
-              <li>• All researcher names</li>
-              <li>• Research interests</li>
-              <li>• Scholar IDs</li>
-              <li>• Analysis results</li>
+              <li>• Unsaved researcher names</li>
+              <li>• Research interests input</li>
+              <li>• Analysis results (non-favorites)</li>
             </ul>
             
             <p className="text-sm font-semibold text-red-600 mb-6">
@@ -287,22 +333,7 @@ export default function App() {
 
       <main className="flex-grow max-w-7xl mx-auto px-4 py-8 w-full space-y-8">
         
-        {/* Intro / Instructions */}
-        <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-2 flex items-center gap-2">
-            <Search className="w-5 h-5 text-imperial-accent" />
-            How it works
-          </h2>
-          <p className="text-slate-600 text-sm mb-4 leading-relaxed">
-             This tool helps you explore research interests of academic staff from any university.
-             <br/>
-             1. Enter the <strong>University</strong> and <strong>Department</strong> names.
-             <br/>
-             2. (Optional) Enter <strong>Your Interests</strong> to automatically highlight matching professors.
-             <br/>
-             3. <strong>Copy the text</strong> (names and titles) from the staff directory page and paste it below.
-          </p>
-        </section>
+
 
         {/* Input Area */}
         <InputSection 
@@ -354,7 +385,6 @@ export default function App() {
                 </button>
               )}
               
-              {/* Clear All Button */}
               <button
                 type="button"
                 onClick={handleClearAll}
@@ -363,6 +393,20 @@ export default function App() {
                 <AlertCircle className="w-4 h-4" />
                 Clear All
               </button>
+              
+              {/* Retry Failed Button */}
+              {researchers.some(r => r.status === AnalysisStatus.ERROR) && (
+                <button
+                  type="button"
+                  onClick={handleRetryFailed}
+                  disabled={!!currentAnalyzingName}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-lg font-medium transition-colors flex items-center gap-2 border border-slate-200"
+                  title="Retry failed analyses"
+                >
+                  <RotateCw className={`w-4 h-4 ${!!currentAnalyzingName ? 'animate-spin' : ''}`} />
+                  Retry Failed ({researchers.filter(r => r.status === AnalysisStatus.ERROR).length})
+                </button>
+              )}
             </div>
             
             {currentAnalyzingName && (
@@ -374,8 +418,72 @@ export default function App() {
           </div>
         )}
 
-        {/* Results */}
-        <ResultsGrid researchers={researchers} onScholarIdSubmit={handleScholarIdSubmit} />
+        {/* Tabs and Results */}
+        {researchers.length > 0 && (
+          <div className="flex gap-2 border-b border-slate-200 mb-6">
+            <button
+              onClick={() => setViewMode('all')}
+              className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+                viewMode === 'all' 
+                  ? 'border-imperial-blue text-imperial-blue' 
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              All Results
+              <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">
+                {researchers.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setViewMode('favorites')}
+              className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+                viewMode === 'favorites' 
+                  ? 'border-yellow-400 text-slate-800' 
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Star className={`w-4 h-4 ${viewMode === 'favorites' ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+              Favorites
+              <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">
+                {researchers.filter(r => r.isFavorite).length}
+              </span>
+            </button>
+          </div>
+        )}
+
+        {viewMode === 'favorites' && displayedResearchers.length === 0 && researchers.length > 0 ? (
+           <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+             <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3">
+               <Star className="w-6 h-6 text-yellow-400" />
+             </div>
+             <h3 className="text-slate-800 font-medium mb-1">No favorites yet</h3>
+             <p className="text-slate-500 text-sm">Star researchers to save them here.</p>
+           </div>
+        ) : (
+          <ResultsGrid 
+            researchers={displayedResearchers} 
+            onScholarIdSubmit={handleScholarIdSubmit}
+            onToggleFavorite={handleToggleFavorite}
+          />
+        )}
+
+        {/* Intro / Instructions (Moved to bottom) */}
+        <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 opacity-80 hover:opacity-100 transition-opacity">
+          <h2 className="text-lg font-semibold text-slate-800 mb-2 flex items-center gap-2">
+            <Search className="w-5 h-5 text-imperial-accent" />
+            How it works
+          </h2>
+          <p className="text-slate-600 text-sm mb-4 leading-relaxed">
+             1. Enter <strong>University</strong> and <strong>Department</strong>.
+             <br/>
+             2. Enter <strong>Your Interests</strong> for AI-powered matching.
+             <br/>
+             3. <strong>Paste staff list text</strong> to extract names.
+             <br/>
+             4. Click "Analyze All" to process.
+          </p>
+        </section>
 
       </main>
 

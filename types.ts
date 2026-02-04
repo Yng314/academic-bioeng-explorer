@@ -16,6 +16,13 @@ export interface KeywordEvidence {
   }>;
 }
 
+export enum MatchType {
+  NONE = 'NONE',
+  LOW = 'LOW',         // Exactly 2 matches
+  PARTIAL = 'PARTIAL', // 3+ matches (but not all)
+  FULL = 'FULL'        // Matches all user interests
+}
+
 export interface Researcher {
   id: string;
   name: string;
@@ -25,7 +32,9 @@ export interface Researcher {
   tags?: KeywordEvidence[]; // Enhanced with evidence
   profileUrl?: string;
   isMatch?: boolean;
+  matchType?: MatchType;
   matchReason?: string;
+  isFavorite?: boolean;
 }
 
 export interface AnalysisResult {
@@ -33,5 +42,6 @@ export interface AnalysisResult {
   keywords: KeywordEvidence[]; // Enhanced with evidence
   url?: string;
   isMatch: boolean;
+  matchType?: MatchType;
   matchReason?: string;
 }
