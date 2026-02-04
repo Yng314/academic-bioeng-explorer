@@ -66,9 +66,11 @@ export async function fetchScholarPublications(authorId: string): Promise<Schola
 }
 
 /**
- * Generates Google Scholar search URL for a given professor name
+ * Generates Google Scholar author search URL with researcher ID parameter
+ * @param name - Researcher name
+ * @param researcherId - Unique researcher ID for extension integration
  */
-export function generateScholarSearchUrl(name: string): string {
+export function generateScholarSearchUrl(name: string, researcherId: string): string {
   const query = encodeURIComponent(name);
-  return `https://scholar.google.com/scholar?hl=en&q=${query}`;
+  return `https://scholar.google.com/citations?hl=en&view_op=search_authors&mauthors=${query}&researcher_id=${researcherId}`;
 }

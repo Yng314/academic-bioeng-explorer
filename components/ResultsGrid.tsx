@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Researcher, AnalysisStatus } from '../types';
+import { generateScholarSearchUrl } from '../services/serpApiService';
 import { ExternalLink, User, BrainCircuit, Tag, Sparkles, Search, Clipboard } from 'lucide-react';
 
 interface ResultsGridProps {
@@ -43,9 +44,23 @@ const ResearcherCard: React.FC<{
   const isCompleted = data.status === AnalysisStatus.COMPLETED;
   const isMatch = isCompleted && data.isMatch;
 
+  // Store reference to Scholar window to reuse it
+  const scholarWindowRef = useRef<Window | null>(null);
+
   const handleOpenScholar = () => {
-    const url = `https://scholar.google.com/scholar?hl=en&q=${encodeURIComponent(data.name)}`;
-    window.open(url, '_blank');
+    const url = generateScholarSearchUrl(data.name, data.id);
+    
+    // Check if Scholar window is still open
+    if (scholarWindowRef.current && !scholarWindowRef.current.closed) {
+      // Reuse existing window
+      scholarWindowRef.current.location.href = url;
+      scholarWindowRef.current.focus();
+      console.log('[ResultsGrid] Reusing existing Scholar window');
+    } else {
+      // Open new window and save reference
+      scholarWindowRef.current = window.open(url, 'scholarWindow');
+      console.log('[ResultsGrid] Opened new Scholar window');
+    }
   };
 
   const handleSubmitScholarId = () => {
@@ -100,44 +115,66 @@ const ResearcherCard: React.FC<{
 
         {isAwaitingScholarId && (
           <div className="space-y-3">
-            <p className="text-sm text-slate-600 leading-relaxed">
-              To analyze this researcher's publications, we need their Google Scholar author ID.
-            </p>
-            
-            <button
-              onClick={handleOpenScholar}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors border border-blue-200"
-            >
-              <Search className="w-4 h-4" />
-              Open Google Scholar
-            </button>
-
-            <div className="pt-2">
-              <label className="block text-xs font-medium text-slate-600 mb-2">
-                Paste Scholar Author ID (e.g., "LSsXyncAAAAJ"):
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={scholarIdInput}
-                  onChange={(e) => setScholarIdInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSubmitScholarId()}
-                  placeholder="LSsXyncAAAAJ"
-                  className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-imperial-accent focus:border-transparent"
-                />
-                <button
-                  onClick={handleSubmitScholarId}
-                  disabled={!scholarIdInput.trim()}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <Clipboard className="w-4 h-4" />
-                  Submit
-                </button>
+            {(() => {
+              console.log('[ResultsGrid] Checking scholarAuthorId for', data.name, ':', data.scholarAuthorId);
+              return data.scholarAuthorId;
+            })() ? (
+              // ID已经从扩展接收 - only show confirmation
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-emerald-700 font-medium mb-2">
+                  <Sparkles className="w-4 h-4" />
+                  Author ID Received!
+                </div>
+                <div className="text-sm text-emerald-600">
+                  ID: <code className="bg-emerald-100 px-2 py-0.5 rounded">{data.scholarAuthorId}</code>
+                </div>
+                <div className="text-xs text-emerald-600 mt-2">
+                  ✓ Ready for batch analysis
+                </div>
               </div>
-              <p className="text-xs text-slate-500 mt-2">
-                💡 Tip: Find the author ID in the URL after clicking their name in Scholar (e.g., user=<strong>LSsXyncAAAAJ</strong>)
-              </p>
-            </div>
+            ) : (
+              // 还没有ID，显示原来的界面
+              <>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Click the button below to open Google Scholar, then use the extension to select the correct author.
+                </p>
+                
+                <button
+                  onClick={handleOpenScholar}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors border border-blue-200"
+                >
+                  <Search className="w-4 h-4" />
+                  Open Google Scholar
+                </button>
+
+                <div className="pt-2">
+                  <label className="block text-xs font-medium text-slate-600 mb-2">
+                    Or manually paste Scholar Author ID:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={scholarIdInput}
+                      onChange={(e) => setScholarIdInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSubmitScholarId()}
+                      placeholder="LSsXyncAAAAJ"
+                      className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-imperial-accent focus:border-transparent"
+                    />
+                    <button
+                      onClick={handleSubmitScholarId}
+                      disabled={!scholarIdInput.trim()}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                    >
+                      <Clipboard className="w-4 h-4" />
+                      Submit
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    💡 Tip: Install the Chrome extension for automatic ID extraction
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
 

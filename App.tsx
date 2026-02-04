@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { extractNamesFromText, analyzeScholarPublications } from './services/geminiService';
 import { fetchScholarPublications } from './services/serpApiService';
 import { Researcher, AnalysisStatus } from './types';
@@ -14,6 +14,91 @@ export default function App() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [currentAnalyzingName, setCurrentAnalyzingName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // LocalStorage persistence
+  const [isInitialized, setIsInitialized] = useState(false);
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    // Prevent double execution in React StrictMode
+    if (hasInitialized.current) {
+      console.log('[Web App] Skipping duplicate initialization (StrictMode)');
+      return;
+    }
+    hasInitialized.current = true;
+    
+    // Load saved data on mount
+    console.log('[Web App] Loading saved data from LocalStorage...');
+    const savedResearchers = localStorage.getItem('researchers');
+    const savedUserInterests = localStorage.getItem('userInterests');
+    const savedRawText = localStorage.getItem('rawText');
+    
+    if (savedResearchers) {
+      try {
+        const parsed = JSON.parse(savedResearchers);
+        console.log('[Web App] Restored researchers:', parsed.length);
+        setResearchers(parsed);
+      } catch (e) {
+        console.error('Failed to parse saved researchers:', e);
+      }
+    }
+    
+    if (savedUserInterests) setUserInterests(savedUserInterests);
+    if (savedRawText) setRawText(savedRawText);
+    
+    // AFTER loading from LocalStorage, check URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const researcherId = params.get('researcher_id');
+    const authorId = params.get('author_id');
+    const authorName = params.get('author_name');
+    
+    if (researcherId && authorId) {
+      console.log('[Web App] ✅ Received author ID from URL:', {
+        researcherId,
+        authorId,
+        authorName
+      });
+      
+      // Update the just-loaded researchers with the author ID
+      setResearchers(prev => {
+        const updated = prev.map(r => 
+          r.id === researcherId ? {
+            ...r,
+            scholarAuthorId: authorId,
+            status: AnalysisStatus.AWAITING_SCHOLAR_ID
+          } : r
+        );
+        console.log('[Web App] Updated researchers with URL data:', updated);
+        return updated;
+      });
+      
+      // Clean URL (remove parameters)
+      window.history.replaceState({}, '', window.location.pathname);
+      
+      console.log(`[Web App] ✓ Author ID received for ${authorName}: ${authorId}`);
+    }
+    
+    setIsInitialized(true);
+  }, []);
+
+  // Save to LocalStorage whenever data changes
+  useEffect(() => {
+    // Always save, even during initialization
+    // The hasInitialized ref prevents duplicate loads, not saves
+    console.log('[Web App] Saving researchers to LocalStorage:', researchers.length);
+    localStorage.setItem('researchers', JSON.stringify(researchers));
+  }, [researchers]);
+
+  useEffect(() => {
+    localStorage.setItem('userInterests', userInterests);
+  }, [userInterests]);
+
+  useEffect(() => {
+    localStorage.setItem('rawText', rawText);
+  }, [rawText]);
+
+
 
   const handleExtractNames = useCallback(async () => {
     if (!rawText.trim()) return;
@@ -85,8 +170,103 @@ export default function App() {
     }
   }, [researchers, userInterests]);
 
+  // Batch analyze all researchers who have author IDs
+  const handleAnalyzeAll = useCallback(async () => {
+    const toAnalyze = researchers.filter(r => 
+      r.scholarAuthorId && r.status === AnalysisStatus.AWAITING_SCHOLAR_ID
+    );
+
+    if (toAnalyze.length === 0) {
+      setError('No researchers with author IDs ready to analyze');
+      return;
+    }
+
+    console.log(`[Web App] Starting batch analysis for ${toAnalyze.length} researchers`);
+    
+    // Analyze them one by one (sequential to avoid rate limits)
+    for (const researcher of toAnalyze) {
+      await handleScholarIdSubmit(researcher.id, researcher.scholarAuthorId!);
+      // Small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    console.log('[Web App] Batch analysis complete');
+  }, [researchers, handleScholarIdSubmit]);
+
+  // Clear all data
+  const handleClearAll = useCallback(() => {
+    setShowClearConfirm(true);
+  }, []);
+
+  const confirmClearAll = useCallback(() => {
+    console.log('[Web App] Clearing all data...');
+    
+    // Reset all state
+    setResearchers([]);
+    setUserInterests('');
+    setRawText('');
+    setError(null);
+    setCurrentAnalyzingName(null);
+    setIsInitialized(false);
+    setShowClearConfirm(false);
+    
+    // Reset initialization flag
+    hasInitialized.current = false;
+    
+    // Clear LocalStorage
+    localStorage.clear();
+    
+    console.log('[Web App] ✓ All data cleared successfully');
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* Confirmation Dialog */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Clear All Data?</h3>
+            </div>
+            
+            <p className="text-slate-600 mb-4">
+              This will permanently remove:
+            </p>
+            
+            <ul className="text-sm text-slate-600 space-y-1 mb-6 ml-4">
+              <li>• All researcher names</li>
+              <li>• Research interests</li>
+              <li>• Scholar IDs</li>
+              <li>• Analysis results</li>
+            </ul>
+            
+            <p className="text-sm font-semibold text-red-600 mb-6">
+              ⚠️ This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmClearAll}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-imperial-blue text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -156,8 +336,33 @@ export default function App() {
                </div>
                <div className="h-4 w-px bg-slate-200"></div>
                <div className="text-sm text-slate-500">
-                  {researchers.filter(r => r.status === AnalysisStatus.AWAITING_SCHOLAR_ID).length} awaiting ID
+                  {researchers.filter(r => r.scholarAuthorId && r.status === AnalysisStatus.AWAITING_SCHOLAR_ID).length} ready to analyze
                </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {/* Analyze All Button */}
+              {researchers.filter(r => r.scholarAuthorId && r.status === AnalysisStatus.AWAITING_SCHOLAR_ID).length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAnalyzeAll}
+                  disabled={!!currentAnalyzingName}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  <Play className="w-4 h-4" />
+                  Analyze All ({researchers.filter(r => r.scholarAuthorId && r.status === AnalysisStatus.AWAITING_SCHOLAR_ID).length})
+                </button>
+              )}
+              
+              {/* Clear All Button */}
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium transition-colors flex items-center gap-2 border border-red-200"
+              >
+                <AlertCircle className="w-4 h-4" />
+                Clear All
+              </button>
             </div>
             
             {currentAnalyzingName && (
