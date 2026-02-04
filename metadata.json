@@ -1,0 +1,5 @@
+{
+  "name": "Academic BioEng Explorer",
+  "description": "A tool to extract researcher names from text and summarize their research interests using AI and Google Search for any university.",
+  "requestFramePermissions": []
+}
