@@ -31,10 +31,10 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ researchers, onScholar
     }
 
     // Priority 3: Matches (within same group)
-    // Full (All) > Partial (3+) > Low (2) > None
+    // High (>80%) > Partial (3+) > Low (2) > None
     const getMatchScore = (r: Researcher) => {
       if (!r.isMatch) return 0;
-      if (r.matchType === 'FULL') return 3;
+      if (r.matchType === 'HIGH') return 3;
       if (r.matchType === 'PARTIAL') return 2;
       if (r.matchType === 'LOW') return 1;
       return 0.5; // Legacy match without type
@@ -75,7 +75,8 @@ const ResearcherCard: React.FC<{
   const isError = data.status === AnalysisStatus.ERROR;
   const isCompleted = data.status === AnalysisStatus.COMPLETED;
   const isMatch = isCompleted && data.isMatch;
-  const isFullMatch = data.matchType === 'FULL';
+
+  const isHighMatch = data.matchType === 'HIGH';
   const isPartialMatch = data.matchType === 'PARTIAL';
   const isLowMatch = data.matchType === 'LOW';
 
@@ -109,7 +110,7 @@ const ResearcherCard: React.FC<{
     <div className={`
       relative flex flex-col h-full bg-white rounded-xl shadow-sm border transition-all duration-300
       ${isLoading ? 'border-imperial-accent ring-1 ring-imperial-accent shadow-md scale-[1.01]' : ''}
-      ${isFullMatch ? 'border-purple-400 ring-2 ring-purple-400 shadow-md bg-purple-50/10' : ''}
+      ${isHighMatch ? 'border-purple-400 ring-2 ring-purple-400 shadow-md bg-purple-50/10' : ''}
       ${isPartialMatch ? 'border-emerald-400 ring-1 ring-emerald-400 shadow-md' : ''}
       ${isLowMatch ? 'border-blue-400 ring-1 ring-blue-400 shadow-md' : ''}
       ${!isMatch && isCompleted ? 'border-slate-200 hover:shadow-md' : ''}
@@ -117,10 +118,10 @@ const ResearcherCard: React.FC<{
       ${isError ? 'border-red-200' : ''}
     `}>
       {/* Match Badge */}
-      {isFullMatch && (
+      {isHighMatch && (
         <div className="absolute -top-3 -right-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 shadow-sm flex items-center gap-1 z-10">
           <Sparkles className="w-3 h-3 fill-purple-500 text-purple-500" />
-          All Match
+          High Match
         </div>
       )}
       {isPartialMatch && (
@@ -138,7 +139,7 @@ const ResearcherCard: React.FC<{
 
       {/* Header */}
       <div className={`p-5 border-b flex items-start justify-between gap-4 
-        ${isFullMatch ? 'bg-purple-50/50 border-purple-200' : ''}
+        ${isHighMatch ? 'bg-purple-50/50 border-purple-200' : ''}
         ${isPartialMatch ? 'bg-emerald-50/30 border-emerald-100' : ''}
         ${isLowMatch ? 'bg-blue-50/30 border-blue-100' : ''}
         ${!isMatch ? 'border-slate-100' : ''}
@@ -146,7 +147,7 @@ const ResearcherCard: React.FC<{
         <div className="flex items-center gap-3">
           <div className={`
             w-10 h-10 rounded-full flex items-center justify-center shrink-0
-            ${isFullMatch ? 'bg-purple-100 text-purple-600' : ''}
+            ${isHighMatch ? 'bg-purple-100 text-purple-600' : ''}
             ${isPartialMatch ? 'bg-emerald-100 text-emerald-600' : ''}
             ${isLowMatch ? 'bg-blue-100 text-blue-600' : ''}
             ${!isMatch && isCompleted ? 'bg-imperial-light text-imperial-blue' : ''}
@@ -289,10 +290,10 @@ const ResearcherCard: React.FC<{
             
             {data.matchReason && isMatch && (
                <div className={`text-xs p-2.5 rounded-md border italic
-                 ${isFullMatch ? 'bg-purple-50 text-purple-800 border-purple-100' : ''}
+                 ${isHighMatch ? 'bg-purple-50 text-purple-800 border-purple-100' : ''}
                  ${isPartialMatch ? 'bg-emerald-50 text-emerald-800 border-emerald-100' : ''}
                  ${isLowMatch ? 'bg-blue-50 text-blue-800 border-blue-100' : ''}
-                 ${!isFullMatch && !isPartialMatch && !isLowMatch ? 'bg-slate-50 text-slate-600 border-slate-100' : ''}
+                 ${!isHighMatch && !isPartialMatch && !isLowMatch ? 'bg-slate-50 text-slate-600 border-slate-100' : ''}
                `}>
                  "{data.matchReason}"
                </div>

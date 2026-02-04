@@ -95,6 +95,11 @@ ${hasUserInterests ? `
    - For EACH interest, check if the researcher has published work addressing it.
    - Be flexible with wording (e.g. "MRI" matches "Medical Imaging").
    - **CRITICAL:** Return a list of EXACTLY which user interests were matched.
+   - **Step 3: Assign Match Type:**
+     - **HIGH MATCH:** Matches >= 80% of user interests (e.g. 4 out of 5, or All).
+     - **PARTIAL MATCH:** Matches 3 or more interests (but < 80%).
+     - **LOW MATCH:** Matches EXACTLY TWO (2) interests.
+     - **NONE:** Matches 0 or 1 interest.
 
 3. Provide evidence:
    - Identify 3-5 specific matching keywords.
@@ -115,7 +120,7 @@ Return the result in the following JSON format:
     }
   ],
   "matched_user_interests": ${hasUserInterests ? '["Interest 1", "Interest 2"]' : '[]'},
-  "matchReason": "${hasUserInterests ? 'Explain the match (e.g. "Covered 2/3 interests: AI and Imaging")' : 'null'}"
+  "matchReason": "${hasUserInterests ? 'Explain the match (e.g. "Covered 4/5 interests: AI, Imaging...")' : 'null'}"
 }
 
 IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interests" if there is clear evidence.' : 'Return the most prominent research themes.'}`,
@@ -140,12 +145,15 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
       const matchedList = Array.isArray(parsed.matched_user_interests) ? parsed.matched_user_interests : [];
       const matchCount = matchedList.length;
 
-      // 3. Apply STRICT rules
+      // 3. Apply Threshold Rules
+      // High Match: >= 80% of total
+      const highThreshold = Math.ceil(totalConcepts * 0.8);
+      
       if (matchCount >= 2) {
-         if (matchCount >= totalConcepts && totalConcepts >= 2) {
-           matchType = 'FULL';
+         if (matchCount >= highThreshold && totalConcepts >= 2) {
+           matchType = 'HIGH';
          } else if (matchCount >= 3) {
-           matchType = 'PARTIAL'; // 3+ but not all
+           matchType = 'PARTIAL'; // 3+ but not high enough
          } else {
            matchType = 'LOW'; // Exact 2 matches
          }
@@ -157,18 +165,8 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
 
       // Special case: Single concept entered by user
       if (totalConcepts === 1 && matchCount === 1) {
-         // If user only typed 1 thing, we allow it (though UI might say LOW or PARTIAL?)
-         // Let's call it LOW for now to ensure it shows up, or NONE if we strictly want 2+ logic?
-         // User Rule: "Low Match (2个), 只有1个也不算match" -> So 1 match is NONE unless...
-         // Actually, if user ONLY asked for 1 thing, it's impossible to get 2 matches.
-         // Assumption: User usually inputs multiple. If they input 1, we should probably show it.
-         // But sticking to USER REQUEST: "只有1个也不算match" (likely in context of multiple).
-         // Let's assume strict 2+ rule applies. But if Total=1, we can't match 2.
-         // Logic: If TotalConcepts == 1, then 1 match is FULL.
-         if (totalConcepts === 1) {
-             matchType = 'FULL';
-             isMatch = true;
-         }
+         matchType = 'HIGH'; // If only 1 concept, 100% match
+         isMatch = true;
       }
     }
 

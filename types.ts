@@ -19,8 +19,8 @@ export interface KeywordEvidence {
 export enum MatchType {
   NONE = 'NONE',
   LOW = 'LOW',         // Exactly 2 matches
-  PARTIAL = 'PARTIAL', // 3+ matches (but not all)
-  FULL = 'FULL'        // Matches all user interests
+  PARTIAL = 'PARTIAL', // 3+ matches (but < 80%)
+  HIGH = 'HIGH'        // >= 80% matches
 }
 
 export interface Researcher {
