@@ -6,12 +6,20 @@
   
   console.log('[Scholar Extension] Content script loaded');
 
-  // Get researcher ID from URL parameter
+  // Get researcher ID from URL parameter OR sessionStorage (for pagination)
   const urlParams = new URLSearchParams(window.location.search);
-  const researcherId = urlParams.get('researcher_id');
+  let researcherId = urlParams.get('researcher_id');
+  
+  if (researcherId) {
+    // Save to session storage for pagination support
+    sessionStorage.setItem('scholar_extension_researcher_id', researcherId);
+  } else {
+    // Try to retrieve from session storage if not in URL
+    researcherId = sessionStorage.getItem('scholar_extension_researcher_id');
+  }
   
   if (!researcherId) {
-    console.log('[Scholar Extension] No researcher_id in URL, extension inactive');
+    console.log('[Scholar Extension] No researcher_id in URL or SessionStorage, extension inactive');
     return;
   }
   

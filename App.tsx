@@ -115,7 +115,17 @@ export default function App() {
         interests: '',
         tags: []
       }));
-      setResearchers(initialResearchers);
+      setResearchers(prev => {
+        const favorites = prev.filter(r => r.isFavorite);
+        const favoriteNames = new Set(favorites.map(f => f.name.toLowerCase()));
+        
+        // Only valid new researchers are those not already favorited
+        const uniqueNewResearchers = initialResearchers.filter(
+          r => !favoriteNames.has(r.name.toLowerCase())
+        );
+        
+        return [...favorites, ...uniqueNewResearchers];
+      });
     } catch (err: any) {
       setError(err.message || 'Failed to extract names.');
     } finally {
