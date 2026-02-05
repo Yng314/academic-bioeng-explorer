@@ -4,7 +4,7 @@ import { fetchScholarPublications } from './services/serpApiService';
 import { Researcher, AnalysisStatus } from './types';
 import { InputSection } from './components/InputSection';
 import { ResultsGrid } from './components/ResultsGrid';
-import { FlaskConical, AlertCircle, Loader2, Play, Search, Star, LayoutGrid, RotateCw, Sparkles } from 'lucide-react';
+import { FlaskConical, AlertCircle, Loader2, Play, Search, Star, LayoutGrid, RotateCw, Sparkles, X } from 'lucide-react';
 
 export default function App() {
   const [userInterests, setUserInterests] = useState('');
@@ -359,7 +359,7 @@ export default function App() {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-grow w-full">
+      <main className="w-full">
         
         {/* Error Display (Centered) */}
         {error && (
@@ -423,10 +423,10 @@ export default function App() {
                 
                 <button
                   onClick={handleClearAll}
-                  className="p-2 text-[#86868B] hover:text-red-600 hover:bg-red-50 rounded-full transition-colors relative group"
+                  className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors relative group"
                   title="Clear All Data"
                 >
-                  <LayoutGrid className="w-4 h-4" />
+                  <X className="w-4 h-4" />
                 </button>
              </div>
           </div>

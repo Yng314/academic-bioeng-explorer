@@ -38,21 +38,13 @@ export const InputSection: React.FC<InputSectionProps> = ({
           {/* Header - Always Visible */}
           <button 
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full text-left px-6 py-4 hover:bg-[#000000]/[0.02] transition-colors flex justify-between items-center group outline-none"
+            className="w-full text-left px-6 py-4 transition-colors flex justify-between items-center group outline-none"
           >
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full transition-colors ${isExpanded ? 'bg-[#0071E3] text-white' : 'bg-[#E8E8ED] text-[#86868B] group-hover:text-[#0071E3] group-hover:bg-[#0071E3]/10'}`}>
-                <Settings className="w-4 h-4" />
-              </div>
               <div className="flex flex-col">
-                <h3 className={`font-semibold tracking-tight transition-colors ${isExpanded ? 'text-[#1D1D1F]' : 'text-[#6e6e73] group-hover:text-[#1D1D1F]'}`}>
+                <h3 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
                   My Interests and Professors' Name List
                 </h3>
-                {!isExpanded && (
-                  <p className="text-xs text-[#86868B] truncate max-w-[300px]">
-                    {userInterests ? `Interests: ${userInterests}` : 'Click to configure interests'}
-                  </p>
-                )}
               </div>
             </div>
             

@@ -133,21 +133,10 @@ const ResearcherCard: React.FC<{
       )}
 
       {/* Header */}
-      <div className={`p-6 pb-4 flex items-start justify-between gap-4 rounded-t-[24px]
-        ${isHighMatch ? 'bg-[#AF52DE]/[0.03]' : ''}
-        ${isPartialMatch ? 'bg-[#34C759]/[0.03]' : ''}
-        ${isLowMatch ? 'bg-[#0071E3]/[0.03]' : ''}
-      `}>
+      <div className="p-6 pb-4 flex items-start justify-between gap-4 rounded-t-[24px]">
         <div className="flex items-center gap-4">
-          <div className={`
-            w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm
-            ${isHighMatch ? 'bg-[#AF52DE] text-white' : ''}
-            ${isPartialMatch ? 'bg-[#34C759] text-white' : ''}
-            ${isLowMatch ? 'bg-[#0071E3] text-white' : ''}
-            ${!isMatch && isCompleted ? 'bg-[#F5F5F7] text-[#86868B]' : ''}
-            ${!isCompleted ? 'bg-[#F5F5F7] text-[#86868B]' : ''}
-          `}>
-            {isHighMatch ? <Sparkles className="w-6 h-6" /> : <User className="w-6 h-6" />}
+          <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-[#F5F5F7] text-[#86868B]">
+             <User className="w-6 h-6" />
           </div>
           <div>
             <h4 className="font-bold text-[#1D1D1F] text-lg leading-tight line-clamp-2 tracking-tight">{data.name}</h4>
@@ -270,22 +259,11 @@ const ResearcherCard: React.FC<{
         {/* COMPLETED: RESULTS */}
         {isCompleted && (
           <div className="flex flex-col h-full">
-            {/* Match Reason Module */}
-            {data.matchReason && isMatch && (
-               <div className={`p-4 rounded-xl text-sm leading-relaxed mb-4 font-medium border
-                 ${isHighMatch ? 'bg-[#AF52DE]/5 text-[#AF52DE] border-[#AF52DE]/10' : ''}
-                 ${isPartialMatch ? 'bg-[#34C759]/5 text-[#34C759] border-[#34C759]/10' : ''}
-                 ${isLowMatch ? 'bg-[#0071E3]/5 text-[#0071E3] border-[#0071E3]/10' : ''}
-                 ${!isHighMatch && !isPartialMatch && !isLowMatch ? 'bg-[#F5F5F7] text-[#86868B] border-transparent' : ''}
-               `}>
-                 "{data.matchReason}"
+            {/* Match Reason Module - Minimal Style */}
+            {data.matchReason && (
+               <div className="text-sm leading-relaxed mb-4 text-[#1D1D1F] font-medium">
+                 {data.matchReason}
                </div>
-            )}
-            
-            {!isMatch && (
-              <div className="text-sm text-[#1D1D1F] leading-relaxed mb-4">
-                 {data.interests}
-              </div>
             )}
 
             {/* Keywords / Tags */}
@@ -331,7 +309,7 @@ const ResearcherCard: React.FC<{
                   href={data.profileUrl} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="group flex items-center gap-1.5 text-xs font-semibold text-[#0071E3] hover:text-[#0077ED] transition-colors"
+                  className="group flex items-center gap-1.5 text-xs font-semibold text-[#0071E3]/50 hover:text-[#0071E3] transition-colors"
                 >
                   View Scholar Profile 
                   <ExternalLink className="w-3 h-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

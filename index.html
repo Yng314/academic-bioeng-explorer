@@ -7,6 +7,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      
+      html {
+        scrollbar-gutter: stable;
+      }
+
+      /* Apple-style Scrollbar */
+      ::-webkit-scrollbar {
+        width: 14px;
+        height: 14px;
+        background: transparent;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: transparent;
+        border: 5px solid transparent;
+        background-clip: content-box;
+        border-radius: 9999px;
+      }
+      :hover::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.2);
+      }
+      ::-webkit-scrollbar-corner {
+        background: transparent;
+      }
     </style>
     <script>
       tailwind.config = {
