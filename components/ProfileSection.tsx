@@ -4,11 +4,15 @@ import { Sparkles, FileText, LayoutTemplate } from 'lucide-react';
 interface ProfileSectionProps {
   userInterests: string;
   setUserInterests: (s: string) => void;
+  letterTemplate: string;
+  setLetterTemplate: (s: string) => void;
 }
 
 export const ProfileSection: React.FC<ProfileSectionProps> = ({ 
   userInterests,
-  setUserInterests
+  setUserInterests,
+  letterTemplate,
+  setLetterTemplate
 }) => {
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -45,10 +49,8 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
           </div>
         </div>
 
-        {/* My Letter Template Card (Placeholder) */}
-        <div className="bg-white rounded-[24px] p-8 shadow-apple border border-black/5 opacity-60 grayscale-[0.5] relative overflow-hidden group hover:opacity-100 hover:grayscale-0 transition-all duration-300">
-           <div className="absolute top-4 right-4 bg-[#F5F5F7] text-[#86868B] text-[10px] uppercase font-bold px-2 py-1 rounded-md">Coming Soon</div>
-           
+        {/* My Letter Template Card */}
+        <div className="bg-white rounded-[24px] p-8 shadow-apple border border-black/5 transition-all duration-300">
            <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-full bg-[#34C759]/10 flex items-center justify-center text-[#34C759]">
               <LayoutTemplate className="w-5 h-5" />
@@ -58,13 +60,17 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
           
           <div className="space-y-4">
              <p className="text-sm text-[#86868B] leading-relaxed">
-              Draft your outreach email template. In the future, we'll automatically customize this for each matched professor.
+              Draft your outreach email template. The AI will automatically customize this for each matched professor using their specific research topics.
             </p>
             <textarea
-              className="w-full h-40 p-4 text-sm leading-relaxed border border-[#D2D2D7] bg-[#F5F5F7]/30 rounded-xl focus:ring-4 focus:ring-[#34C759]/20 focus:border-[#34C759] outline-none resize-none text-[#1D1D1F] placeholder:text-[#86868B] transition-all cursor-not-allowed"
+              className="w-full h-64 p-4 text-sm leading-relaxed border border-[#D2D2D7] bg-[#F5F5F7]/30 rounded-xl focus:ring-4 focus:ring-[#34C759]/20 focus:border-[#34C759] outline-none resize-y text-[#1D1D1F] placeholder:text-[#86868B] transition-all font-mono"
               placeholder="Dear Professor [Name],&#10;&#10;I am writing to express my interest in your research on..."
-              disabled
+              value={letterTemplate}
+              onChange={(e) => setLetterTemplate(e.target.value)}
             />
+             <p className="text-[11px] text-[#86868B] px-1">
+                Tip: Use placeholders like [Name] or [Topic]. The AI will adapt the content around them.
+              </p>
           </div>
         </div>
 
@@ -72,3 +78,5 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
     </div>
   );
 };
+
+

@@ -6,11 +6,13 @@ import { InputSection } from './components/InputSection'; // Keeping for referen
 import { NavBar } from './components/NavBar';
 import { ProfileSection } from './components/ProfileSection';
 import { ProfessorSearchSection } from './components/ProfessorSearchSection';
+import { CustomizeLetterSection } from './components/CustomizeLetterSection';
 import { ResultsGrid } from './components/ResultsGrid';
 import { FlaskConical, AlertCircle, Loader2, Play, Search, Star, LayoutGrid, RotateCw, Sparkles, X } from 'lucide-react';
 
 export default function App() {
   const [userInterests, setUserInterests] = useState('');
+  const [letterTemplate, setLetterTemplate] = useState('');
   const [rawText, setRawText] = useState('');
   
   const [researchers, setResearchers] = useState<Researcher[]>([]);
@@ -19,7 +21,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
-  const [activeTab, setActiveTab] = useState<'profile' | 'find'>('find'); // Default to 'find' tab
+  const [activeTab, setActiveTab] = useState<'profile' | 'find' | 'customize'>('find'); // Default to 'find' tab
 
   // LocalStorage persistence
   const [isInitialized, setIsInitialized] = useState(false);
@@ -37,6 +39,7 @@ export default function App() {
     console.log('[Web App] Loading saved data from LocalStorage...');
     const savedResearchers = localStorage.getItem('researchers');
     const savedUserInterests = localStorage.getItem('userInterests');
+    const savedLetterTemplate = localStorage.getItem('letterTemplate');
     const savedRawText = localStorage.getItem('rawText');
     
     if (savedResearchers) {
@@ -50,6 +53,7 @@ export default function App() {
     }
     
     if (savedUserInterests) setUserInterests(savedUserInterests);
+    if (savedLetterTemplate) setLetterTemplate(savedLetterTemplate);
     if (savedRawText) setRawText(savedRawText);
     
     // AFTER loading from LocalStorage, check URL parameters
@@ -99,6 +103,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('userInterests', userInterests);
   }, [userInterests]);
+
+  useEffect(() => {
+    localStorage.setItem('letterTemplate', letterTemplate);
+  }, [letterTemplate]);
+
 
   useEffect(() => {
     localStorage.setItem('rawText', rawText);
@@ -328,33 +337,10 @@ export default function App() {
         </div>
       )}
 
-      {/* Unified Sticky Header & Nav Wrapper */}
-      <div className="sticky top-0 z-50 w-full bg-[#FAFAFA]/90 backdrop-blur-xl border-b border-black/5 transition-all duration-300">
-        
-        {/* Apple-style Header (No longer sticky itself) */}
-        <header className="w-full transition-all">
-          <div className="max-w-7xl mx-auto px-6 h-12 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
-                <FlaskConical className="w-4 h-4" />
-              </div>
-              <h1 className="text-sm font-semibold tracking-wide text-[#1D1D1F]">
-                Professor Matcher
-              </h1>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-2 text-[11px] font-medium text-[#86868B] bg-[#F5F5F7] px-3 py-1 rounded-full">
-                <Sparkles className="w-3 h-3 text-[#0071E3]" />
-                <span>AI-Powered by Gemini 3 Pro</span>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Navigation Bar (Embedded) */}
-        <NavBar activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
+        {/* Unified Sticky Header & Nav Wrapper */}
+        <div className="sticky top-0 z-50 w-full bg-[#FAFAFA]/30 backdrop-blur-md transition-all duration-300">
+          <NavBar activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
       
       {/* Content Area */}
       <div className="relative z-30 min-h-screen">
@@ -364,6 +350,8 @@ export default function App() {
           <ProfileSection 
             userInterests={userInterests}
             setUserInterests={setUserInterests}
+            letterTemplate={letterTemplate}
+            setLetterTemplate={setLetterTemplate}
           />
         )}
 
@@ -381,73 +369,14 @@ export default function App() {
             {/* Main Content Area (Results) */}
             <main className="w-full">
               
+
+
               {/* Error Display (Centered) */}
               {error && (
                  <div className="max-w-7xl mx-auto px-6 py-6 animate-in fade-in slide-in-from-top-2">
                   <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 flex items-center gap-3">
                     <AlertCircle className="w-5 h-5" />
                     <p className="text-sm font-medium">{error}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Full-Width Sticky Action Bar */}
-              {researchers.length > 0 && (
-                <div className="sticky top-[88px] z-40 bg-[#F5F5F7]/85 backdrop-blur-xl border-b border-black/5 shadow-sm w-full transition-all">
-                  <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                     <div className="flex items-center gap-2">
-                       <h2 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
-                         Analysis Results
-                       </h2>
-                       <span className="bg-[#E8E8ED] text-[#1D1D1F] text-xs font-bold px-2.5 py-1 rounded-full">
-                         {researchers.length}
-                       </span>
-                     </div>
-                     
-                     <div className="flex items-center gap-3 bg-white/60 backdrop-blur-sm p-1.5 rounded-full shadow-sm border border-white/40">
-                        <button
-                          onClick={handleAnalyzeAll}
-                          disabled={isExtracting}
-                          className="flex items-center gap-2 px-5 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition-all shadow-apple hover:shadow-apple-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          Batch Analyze
-                        </button>
-                        
-                        <div className="w-px h-6 bg-slate-200"></div>
-
-                        <div className="flex bg-[#E8E8ED] p-1 rounded-full">
-                          <button 
-                            onClick={() => setViewMode('all')}
-                            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                              viewMode === 'all' 
-                                ? 'bg-white text-[#1D1D1F] shadow-sm' 
-                                : 'text-[#86868B] hover:text-[#1D1D1F]'
-                            }`}
-                          >
-                            All
-                          </button>
-                          <button 
-                            onClick={() => setViewMode('favorites')}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                              viewMode === 'favorites' 
-                                ? 'bg-white text-[#1D1D1F] shadow-sm' 
-                                : 'text-[#86868B] hover:text-[#1D1D1F]'
-                            }`}
-                          >
-                            <Star className={`w-3 h-3 ${viewMode === 'favorites' ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                            Favorites
-                          </button>
-                        </div>
-                        
-                        <button
-                          onClick={handleClearAll}
-                          className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors relative group"
-                          title="Clear All Data"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                     </div>
                   </div>
                 </div>
               )}
@@ -473,8 +402,87 @@ export default function App() {
                    )
                 )}
               </div>
+
+              {/* Full-Width Sticky Bottom Action Bar */}
+              {activeTab === 'find' && researchers.length > 0 && (
+                <div className="sticky bottom-0 z-40 w-full bg-[#FAFAFA]/30 backdrop-blur-xl animate-in slide-in-from-bottom-4 fade-in duration-500">
+                  <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                     
+                     {/* Title & Badge */}
+                     <div className="flex items-center gap-3">
+                       <h2 className="text-l font-semibold tracking-wide text-[#1D1D1F]">
+                         Analysis Results
+                       </h2>
+                       <span className="bg-[#E8E8ED] text-[#1D1D1F] text-[10px] font-bold px-2 py-0.5 rounded-full">
+                         {researchers.length}
+                       </span>
+                     </div>
+                     
+                     {/* Actions Group */}
+                     <div className="flex items-center gap-3">
+                        <button
+                          onClick={handleAnalyzeAll}
+                          disabled={isExtracting}
+                          className="flex items-center gap-2 px-5 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-semibold transition-all shadow-apple hover:shadow-apple-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span className="hidden sm:inline">Batch Analyze</span>
+                          <span className="sm:hidden">Run</span>
+                        </button>
+                        
+                        <div className="w-px h-6 bg-black/10"></div>
+
+                        <div className="flex bg-[#E8E8ED]/70 p-1 rounded-full">
+                          <button 
+                            onClick={() => setViewMode('all')}
+                            className={`px-4 py-1.5 rounded-full text-[11px] font-semibold transition-all ${
+                              viewMode === 'all' 
+                                ? 'bg-white text-[#1D1D1F] shadow-sm' 
+                                : 'text-[#86868B] hover:text-[#1D1D1F]'
+                            }`}
+                          >
+                            All
+                          </button>
+                          <button 
+                            onClick={() => setViewMode('favorites')}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-semibold transition-all ${
+                              viewMode === 'favorites' 
+                                ? 'bg-white text-[#1D1D1F] shadow-sm' 
+                                : 'text-[#86868B] hover:text-[#1D1D1F]'
+                            }`}
+                          >
+                            <Star className={`w-3 h-3 ${viewMode === 'favorites' ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                            Favorites
+                          </button>
+                        </div>
+                        
+                        <div className="w-px h-6 bg-black/10 mx-1"></div>
+
+                        <button
+                          onClick={handleClearAll}
+                          className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                          title="Clear All"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                     </div>
+                  </div>
+                </div>
+              )}
             </main>
           </>
+        )}
+
+        {/* TAB 3: CUSTOMIZE LETTER */}
+        {activeTab === 'customize' && (
+           <CustomizeLetterSection 
+             favoriteResearchers={researchers.filter(r => r.isFavorite)}
+             letterTemplate={letterTemplate}
+             userInterests={userInterests}
+             onUpdateResearcher={(id, updates) => {
+               setResearchers(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+             }}
+           />
         )}
       </div>
         {/* Intro / Instructions (Moved to bottom) */}

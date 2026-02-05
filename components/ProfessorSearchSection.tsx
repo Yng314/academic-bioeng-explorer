@@ -31,7 +31,7 @@ export const ProfessorSearchSection: React.FC<ProfessorSearchSectionProps> = ({
   }, [hasResults]);
 
   return (
-    <div className="w-full bg-[#F5F5F7]/85 backdrop-blur-xl border-b border-black/5 transition-all duration-300">
+    <div className="w-full bg-[#FAFAFA]/30 backdrop-blur-md border-b border-black/5 transition-all duration-300">
       <div className="max-w-7xl mx-auto">
          <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? '' : ''}`}>
            {/* Header - Always Visible (Toggle) */}
@@ -40,7 +40,7 @@ export const ProfessorSearchSection: React.FC<ProfessorSearchSectionProps> = ({
              className="w-full px-6 py-4 flex items-center justify-between group outline-none transition-colors"
            >
              <div className="space-y-1 text-left">
-                <h3 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
+                <h3 className="text-l font-semibold tracking-tight text-[#1D1D1F]">
                    Extract Professor Names
                 </h3>
                 <p className={`text-sm text-[#86868B] transition-opacity duration-300 ${!isExpanded ? 'opacity-0 h-0 hidden' : 'opacity-100'}`}>

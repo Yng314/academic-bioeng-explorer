@@ -35,6 +35,7 @@ export interface Researcher {
   matchType?: MatchType;
   matchReason?: string;
   isFavorite?: boolean;
+  customizedLetter?: string;
 }
 
 export interface AnalysisResult {

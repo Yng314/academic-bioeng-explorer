@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { AnalysisResult } from '../types';
+import { AnalysisResult, Researcher } from '../types';
 import { ScholarAuthorData } from './serpApiService';
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -184,5 +184,58 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
       url: undefined,
       isMatch: false
     };
+  }
+};
+
+/**
+ * Generates a customized outreach letter based on a template and researcher data
+ */
+export const generateCustomizedLetter = async (
+  template: string,
+  researcher: Researcher,
+  userInterests: string
+): Promise<string> => {
+  if (!apiKey) throw new Error("API Key is missing.");
+
+  // Extract relevant research themes from the researcher's analysis
+  const researcherThemes = researcher.tags?.map(t => t.keyword).join(', ') || 'their research field';
+  
+  // Format supporting papers to give context
+  const keyPapers = researcher.tags?.flatMap(t => t.supportingPapers.map(p => `"${p.title}"`)).slice(0, 3).join('; ') || '';
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: `You are an expert academic mentor helping a student customize an outreach email to a professor.
+
+**Task:** Refine the provided "Letter Template" to specifically address Professor "${researcher.name}".
+
+**Data Provided:**
+1. **Student's Template:** 
+"""
+${template}
+"""
+
+2. **Student's Interests:** "${userInterests}"
+
+3. **Professor's Research Profile:**
+   - **Key Themes:** ${researcherThemes}
+   - **Key Papers:** ${keyPapers}
+   - **Summary:** ${researcher.interests || 'N/A'}
+
+**Instructions:**
+- Keep the structure and tone of the original template.
+- Replace placeholders like "[Name]" with "Professor ${researcher.name.split(' ').pop()}".
+- **Crucial:** Insert a specific, genuine sentence connecting the student's interests (${userInterests}) to the professor's specific work (themes: ${researcherThemes}).
+- Mention 1-2 of result specific papers if it fits naturally to show the student did their homework.
+- Keep it concise and professional.
+- Return ONLY the full body of the email text. Do not return Markdown formatting or comments.`,
+    });
+
+    return response.text || "Failed to generate letter.";
+
+  } catch (error) {
+    console.error("Letter generation error:", error);
+    throw new Error("Failed to generate customized letter.");
   }
 };
