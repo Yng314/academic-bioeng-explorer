@@ -2,7 +2,10 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { extractNamesFromText, analyzeScholarPublications } from './services/geminiService';
 import { fetchScholarPublications } from './services/serpApiService';
 import { Researcher, AnalysisStatus } from './types';
-import { InputSection } from './components/InputSection';
+import { InputSection } from './components/InputSection'; // Keeping for reference until fully replaced
+import { NavBar } from './components/NavBar';
+import { ProfileSection } from './components/ProfileSection';
+import { ProfessorSearchSection } from './components/ProfessorSearchSection';
 import { ResultsGrid } from './components/ResultsGrid';
 import { FlaskConical, AlertCircle, Loader2, Play, Search, Star, LayoutGrid, RotateCw, Sparkles, X } from 'lucide-react';
 
@@ -16,6 +19,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
+  const [activeTab, setActiveTab] = useState<'profile' | 'find'>('find'); // Default to 'find' tab
 
   // LocalStorage persistence
   const [isInitialized, setIsInitialized] = useState(false);
@@ -344,116 +348,131 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* Navigation Bar */}
+      <NavBar activeTab={activeTab} onTabChange={setActiveTab} />
       
-      {/* Full-Width Input Section (Collapsible) */}
-      <div className="relative z-30">
-        <InputSection 
-          userInterests={userInterests} 
-          setUserInterests={setUserInterests}
-          rawText={rawText}
-          setRawText={setRawText}
-          onExtract={handleExtractNames}
-          isExtracting={isExtracting}
-          hasResults={researchers.length > 0}
-        />
-      </div>
-
-      {/* Main Content Area */}
-      <main className="w-full">
+      {/* Content Area */}
+      <div className="relative z-30 min-h-screen">
         
-        {/* Error Display (Centered) */}
-        {error && (
-           <div className="max-w-7xl mx-auto px-6 py-6 animate-in fade-in slide-in-from-top-2">
-            <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5" />
-              <p className="text-sm font-medium">{error}</p>
-            </div>
-          </div>
+        {/* TAB 1: MY PROFILE */}
+        {activeTab === 'profile' && (
+          <ProfileSection 
+            userInterests={userInterests}
+            setUserInterests={setUserInterests}
+          />
         )}
-      </main>
 
-      {/* Full-Width Sticky Action Bar */}
-      {researchers.length > 0 && (
-        <div className="sticky top-14 z-40 bg-[#F5F5F7]/85 backdrop-blur-xl border-b border-black/5 shadow-sm w-full transition-all">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-             <div className="flex items-center gap-2">
-               <h2 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
-                 Analysis Results
-               </h2>
-               <span className="bg-[#E8E8ED] text-[#1D1D1F] text-xs font-bold px-2.5 py-1 rounded-full">
-                 {researchers.length}
-               </span>
-             </div>
-             
-             <div className="flex items-center gap-3 bg-white/60 backdrop-blur-sm p-1.5 rounded-full shadow-sm border border-white/40">
-                <button
-                  onClick={handleAnalyzeAll}
-                  disabled={isExtracting}
-                  className="flex items-center gap-2 px-5 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition-all shadow-apple hover:shadow-apple-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  Batch Analyze
-                </button>
-                
-                <div className="w-px h-6 bg-slate-200"></div>
+        {/* TAB 2: FIND PROFESSOR */}
+        {activeTab === 'find' && (
+          <>
+            <ProfessorSearchSection 
+              rawText={rawText}
+              setRawText={setRawText}
+              onExtract={handleExtractNames}
+              isExtracting={isExtracting}
+              hasResults={researchers.length > 0}
+            />
 
-                <div className="flex bg-[#E8E8ED] p-1 rounded-full">
-                  <button 
-                    onClick={() => setViewMode('all')}
-                    className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                      viewMode === 'all' 
-                        ? 'bg-white text-[#1D1D1F] shadow-sm' 
-                        : 'text-[#86868B] hover:text-[#1D1D1F]'
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button 
-                    onClick={() => setViewMode('favorites')}
-                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-                      viewMode === 'favorites' 
-                        ? 'bg-white text-[#1D1D1F] shadow-sm' 
-                        : 'text-[#86868B] hover:text-[#1D1D1F]'
-                    }`}
-                  >
-                    <Star className={`w-3 h-3 ${viewMode === 'favorites' ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                    Favorites
-                  </button>
+            {/* Main Content Area (Results) */}
+            <main className="w-full">
+              
+              {/* Error Display (Centered) */}
+              {error && (
+                 <div className="max-w-7xl mx-auto px-6 py-6 animate-in fade-in slide-in-from-top-2">
+                  <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5" />
+                    <p className="text-sm font-medium">{error}</p>
+                  </div>
                 </div>
-                
-                <button
-                  onClick={handleClearAll}
-                  className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors relative group"
-                  title="Clear All Data"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-             </div>
-          </div>
-        </div>
-      )}
+              )}
 
-      {/* Results Content Area */}
-      <div className="max-w-7xl mx-auto px-6 pb-20 space-y-8 pt-6">
-        {/* Results Logic */}
-        {researchers.length > 0 && (
-           viewMode === 'favorites' && displayedResearchers.length === 0 ? (
-             <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
-               <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                 <Star className="w-6 h-6 text-yellow-400" />
-               </div>
-               <h3 className="text-slate-800 font-medium mb-1">No favorites yet</h3>
-               <p className="text-slate-500 text-sm">Star researchers to save them here.</p>
-             </div>
-           ) : (
-             <ResultsGrid 
-               researchers={displayedResearchers} 
-               onScholarIdSubmit={handleScholarIdSubmit}
-               onToggleFavorite={handleToggleFavorite}
-             />
-           )
+              {/* Full-Width Sticky Action Bar */}
+              {researchers.length > 0 && (
+                <div className="sticky top-14 z-40 bg-[#F5F5F7]/85 backdrop-blur-xl border-b border-black/5 shadow-sm w-full transition-all">
+                  <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                     <div className="flex items-center gap-2">
+                       <h2 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
+                         Analysis Results
+                       </h2>
+                       <span className="bg-[#E8E8ED] text-[#1D1D1F] text-xs font-bold px-2.5 py-1 rounded-full">
+                         {researchers.length}
+                       </span>
+                     </div>
+                     
+                     <div className="flex items-center gap-3 bg-white/60 backdrop-blur-sm p-1.5 rounded-full shadow-sm border border-white/40">
+                        <button
+                          onClick={handleAnalyzeAll}
+                          disabled={isExtracting}
+                          className="flex items-center gap-2 px-5 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition-all shadow-apple hover:shadow-apple-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          Batch Analyze
+                        </button>
+                        
+                        <div className="w-px h-6 bg-slate-200"></div>
+
+                        <div className="flex bg-[#E8E8ED] p-1 rounded-full">
+                          <button 
+                            onClick={() => setViewMode('all')}
+                            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                              viewMode === 'all' 
+                                ? 'bg-white text-[#1D1D1F] shadow-sm' 
+                                : 'text-[#86868B] hover:text-[#1D1D1F]'
+                            }`}
+                          >
+                            All
+                          </button>
+                          <button 
+                            onClick={() => setViewMode('favorites')}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                              viewMode === 'favorites' 
+                                ? 'bg-white text-[#1D1D1F] shadow-sm' 
+                                : 'text-[#86868B] hover:text-[#1D1D1F]'
+                            }`}
+                          >
+                            <Star className={`w-3 h-3 ${viewMode === 'favorites' ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                            Favorites
+                          </button>
+                        </div>
+                        
+                        <button
+                          onClick={handleClearAll}
+                          className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors relative group"
+                          title="Clear All Data"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Results Content Area */}
+              <div className="max-w-7xl mx-auto px-6 pb-20 space-y-8 pt-6">
+                {/* Results Logic */}
+                {researchers.length > 0 && (
+                   viewMode === 'favorites' && displayedResearchers.length === 0 ? (
+                     <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+                       <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                         <Star className="w-6 h-6 text-yellow-400" />
+                       </div>
+                       <h3 className="text-slate-800 font-medium mb-1">No favorites yet</h3>
+                       <p className="text-slate-500 text-sm">Star researchers to save them here.</p>
+                     </div>
+                   ) : (
+                     <ResultsGrid 
+                       researchers={displayedResearchers} 
+                       onScholarIdSubmit={handleScholarIdSubmit}
+                       onToggleFavorite={handleToggleFavorite}
+                     />
+                   )
+                )}
+              </div>
+            </main>
+          </>
         )}
-
+      </div>
         {/* Intro / Instructions (Moved to bottom) */}
         <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 opacity-80 hover:opacity-100 transition-opacity">
           <h2 className="text-lg font-semibold text-slate-800 mb-2 flex items-center gap-2">
@@ -470,7 +489,7 @@ export default function App() {
              4. Click "Analyze All" to process.
           </p>
         </section>
-      </div>
+
 
       <footer className="py-6 text-center text-slate-400 text-sm">
         <p>&copy; {new Date().getFullYear()} Research Explorer.</p>
