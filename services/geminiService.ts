@@ -50,11 +50,7 @@ export const extractNamesFromText = async (text: string): Promise<string[]> => {
   }
 };
 
-interface Context {
-  university: string;
-  department: string;
-  userInterests: string;
-}
+
 
 /**
  * Analyzes a researcher's publications from Google Scholar
@@ -78,7 +74,7 @@ export const analyzeScholarPublications = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: `You are a STRICT research analyst evaluating a researcher's profile against specific user interests.
       
 **Researcher Profile:** "${name}"
@@ -184,76 +180,6 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
     console.error(`Scholar analysis error for ${name}:`, error);
     return {
       summary: "Failed to analyze publications.",
-      keywords: [],
-      url: undefined,
-      isMatch: false
-    };
-  }
-};
-
-export const analyzeResearcherProfile = async (name: string, context: Context): Promise<AnalysisResult> => {
-  if (!apiKey) throw new Error("API Key is missing.");
-
-  const toolConfig = {
-    tools: [{ googleSearch: {} }]
-  };
-
-  const hasUserInterests = context.userInterests && context.userInterests.trim().length > 0;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Search for the academic profile of "${name}" at ${context.university} (Department of ${context.department}), focusing on their Google Scholar profile and official university page.
-      
-      Tasks:
-      1. Analyze their research interests based on their most cited and recent publications.
-      2. Identify 3-5 specific keywords related to their work.
-      3. Find a URL to their Google Scholar profile or official ${context.university} profile.
-      ${hasUserInterests ? `4. Compare their work with the User's Research Interests: "${context.userInterests}". Determine if there is a semantic match (e.g. if user likes "Medical Imaging", then "MRI" or "CT" is a match).` : ''}
-
-      Return the result in the following JSON format:
-      {
-        "summary": "A 2-3 sentence summary of their research focus based on their publications.",
-        "keywords": ["keyword1", "keyword2", "keyword3"],
-        "url": "http://example.com/profile",
-        "isMatch": boolean, // ${hasUserInterests ? 'True if their work semantically aligns with user interests, false otherwise.' : 'Always false if no user interests provided.'}
-        "matchReason": "Short explanation of why it matches (e.g. 'MRI reconstruction falls under Medical Imaging'). Return null if no match."
-      }
-      
-      If you cannot find specific info, give a best guess based on general context or state 'Information not found'.`,
-      config: {
-        ...toolConfig,
-        responseMimeType: "application/json",
-      }
-    });
-
-    const jsonStr = response.text || "{}";
-    const parsed = JSON.parse(jsonStr);
-
-    // Extract citation links if available from grounding to use as the URL if the model didn't return one in JSON
-    let profileUrl = parsed.url;
-    if ((!profileUrl || profileUrl === 'Information not found') && response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-        const chunks = response.candidates[0].groundingMetadata.groundingChunks;
-        // Find the first web URI
-        const webChunk = chunks.find((c: any) => c.web?.uri);
-        if (webChunk) {
-            profileUrl = webChunk.web.uri;
-        }
-    }
-
-    return {
-      summary: parsed.summary || "No summary available.",
-      keywords: parsed.keywords || [],
-      url: profileUrl,
-      isMatch: !!parsed.isMatch,
-      matchReason: parsed.matchReason || undefined
-    };
-
-  } catch (error) {
-    console.error(`Analysis error for ${name}:`, error);
-    // Return a graceful error state object rather than throwing to keep the queue moving
-    return {
-      summary: "Failed to retrieve research data.",
       keywords: [],
       url: undefined,
       isMatch: false

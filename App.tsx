@@ -85,11 +85,12 @@ export default function App() {
 
   // Save to LocalStorage whenever data changes
   useEffect(() => {
-    // Always save, even during initialization
-    // The hasInitialized ref prevents duplicate loads, not saves
+    // Only save after data has been loaded to prevent overwriting with initial empty state
+    if (!isInitialized) return;
+    
     console.log('[Web App] Saving researchers to LocalStorage:', researchers.length);
     localStorage.setItem('researchers', JSON.stringify(researchers));
-  }, [researchers]);
+  }, [researchers, isInitialized]);
 
   useEffect(() => {
     localStorage.setItem('userInterests', userInterests);
@@ -255,10 +256,10 @@ export default function App() {
     setRawText('');
     setError(null);
     setCurrentAnalyzingName(null);
-    setIsInitialized(false);
     setShowClearConfirm(false);
     
-    // Reset initialization flag (allow reload)
+    // Do NOT reset isInitialized, otherwise saving to localStorage will be blocked by our new guard
+    // setIsInitialized(false);
     hasInitialized.current = true; // Actually we want to keep running, so true is fine, or false if we want full re-init?
     // If we set researchers (even empty or filtered), we trigger the save effect immediately.
     // So we don't need to manually clear localStorage, the effect will update it.
@@ -331,12 +332,12 @@ export default function App() {
               <FlaskConical className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">Academic Research Explorer</h1>
-              <p className="text-xs text-imperial-light opacity-80">AI-Powered Research Summarizer</p>
+              <h1 className="text-xl font-bold tracking-tight">Professor Matcher</h1>
+              <p className="text-xs text-imperial-light opacity-80">AI-Powered Supervisor Matcher</p>
             </div>
           </div>
           <div className="text-right hidden sm:block">
-            <p className="text-xs text-white/60">Powered by Gemini 2.0 Flash</p>
+            <p className="text-xs text-white/60">Powered by Yng</p>
           </div>
         </div>
       </header>
