@@ -328,29 +328,33 @@ export default function App() {
         </div>
       )}
 
-      {/* Apple-style Glass Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-white/20 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] transition-all">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
-              <FlaskConical className="w-4 h-4" />
+      {/* Unified Sticky Header & Nav Wrapper */}
+      <div className="sticky top-0 z-50 w-full bg-[#FAFAFA]/90 backdrop-blur-xl border-b border-black/5 transition-all duration-300">
+        
+        {/* Apple-style Header (No longer sticky itself) */}
+        <header className="w-full transition-all">
+          <div className="max-w-7xl mx-auto px-6 h-12 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
+                <FlaskConical className="w-4 h-4" />
+              </div>
+              <h1 className="text-sm font-semibold tracking-wide text-[#1D1D1F]">
+                Professor Matcher
+              </h1>
             </div>
-            <h1 className="text-sm font-semibold tracking-wide text-[#1D1D1F]">
-              Professor Matcher
-            </h1>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 text-[11px] font-medium text-[#86868B] bg-[#F5F5F7] px-3 py-1 rounded-full">
-              <Sparkles className="w-3 h-3 text-[#0071E3]" />
-              <span>AI-Powered by Gemini 3 Pro</span>
+            
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:flex items-center gap-2 text-[11px] font-medium text-[#86868B] bg-[#F5F5F7] px-3 py-1 rounded-full">
+                <Sparkles className="w-3 h-3 text-[#0071E3]" />
+                <span>AI-Powered by Gemini 3 Pro</span>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Navigation Bar */}
-      <NavBar activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* Navigation Bar (Embedded) */}
+        <NavBar activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
       
       {/* Content Area */}
       <div className="relative z-30 min-h-screen">
@@ -389,7 +393,7 @@ export default function App() {
 
               {/* Full-Width Sticky Action Bar */}
               {researchers.length > 0 && (
-                <div className="sticky top-14 z-40 bg-[#F5F5F7]/85 backdrop-blur-xl border-b border-black/5 shadow-sm w-full transition-all">
+                <div className="sticky top-[88px] z-40 bg-[#F5F5F7]/85 backdrop-blur-xl border-b border-black/5 shadow-sm w-full transition-all">
                   <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                      <div className="flex items-center gap-2">
                        <h2 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
