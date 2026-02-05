@@ -108,164 +108,150 @@ const ResearcherCard: React.FC<{
 
   return (
     <div className={`
-      relative flex flex-col h-full bg-white rounded-xl shadow-sm border transition-all duration-300
-      ${isLoading ? 'border-imperial-accent ring-1 ring-imperial-accent shadow-md scale-[1.01]' : ''}
-      ${isHighMatch ? 'border-purple-400 ring-2 ring-purple-400 shadow-md bg-purple-50/10' : ''}
-      ${isPartialMatch ? 'border-emerald-400 ring-1 ring-emerald-400 shadow-md' : ''}
-      ${isLowMatch ? 'border-blue-400 ring-1 ring-blue-400 shadow-md' : ''}
-      ${!isMatch && isCompleted ? 'border-slate-200 hover:shadow-md' : ''}
-      ${!isCompleted && !isError ? 'border-slate-200 hover:shadow-md' : ''}
+      relative flex flex-col h-full bg-white rounded-[24px] transition-all duration-300
+      ${isLoading ? 'ring-2 ring-[#0071E3] shadow-apple-hover scale-[1.01]' : 'border border-black/5 hover:border-[#D2D2D7] shadow-apple hover:shadow-apple-hover'}
       ${isError ? 'border-red-200' : ''}
     `}>
-      {/* Match Badge */}
+      {/* Match Badge - Apple Pill Style */}
       {isHighMatch && (
-        <div className="absolute -top-3 -right-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold border border-purple-200 shadow-sm flex items-center gap-1 z-10">
-          <Sparkles className="w-3 h-3 fill-purple-500 text-purple-500" />
+        <div className="absolute top-4 right-4 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+          <Sparkles className="w-3 h-3 fill-current" />
           High Match
         </div>
       )}
       {isPartialMatch && (
-        <div className="absolute -top-3 -right-2 bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200 shadow-sm flex items-center gap-1 z-10">
-          <Sparkles className="w-3 h-3 fill-emerald-500 text-emerald-500" />
+        <div className="absolute top-4 right-4 bg-[#34C759]/10 text-[#34C759] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#34C759]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+          <Sparkles className="w-3 h-3 fill-current" />
           Partial Match
         </div>
       )}
       {isLowMatch && (
-        <div className="absolute -top-3 -right-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-200 shadow-sm flex items-center gap-1 z-10">
-          <Sparkles className="w-3 h-3 text-blue-500" />
+        <div className="absolute top-4 right-4 bg-[#0071E3]/10 text-[#0071E3] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#0071E3]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+          <Sparkles className="w-3 h-3 fill-current" />
           Low Match
         </div>
       )}
 
       {/* Header */}
-      <div className={`p-5 border-b flex items-start justify-between gap-4 
-        ${isHighMatch ? 'bg-purple-50/50 border-purple-200' : ''}
-        ${isPartialMatch ? 'bg-emerald-50/30 border-emerald-100' : ''}
-        ${isLowMatch ? 'bg-blue-50/30 border-blue-100' : ''}
-        ${!isMatch ? 'border-slate-100' : ''}
+      <div className={`p-6 pb-4 flex items-start justify-between gap-4 rounded-t-[24px]
+        ${isHighMatch ? 'bg-[#AF52DE]/[0.03]' : ''}
+        ${isPartialMatch ? 'bg-[#34C759]/[0.03]' : ''}
+        ${isLowMatch ? 'bg-[#0071E3]/[0.03]' : ''}
       `}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <div className={`
-            w-10 h-10 rounded-full flex items-center justify-center shrink-0
-            ${isHighMatch ? 'bg-purple-100 text-purple-600' : ''}
-            ${isPartialMatch ? 'bg-emerald-100 text-emerald-600' : ''}
-            ${isLowMatch ? 'bg-blue-100 text-blue-600' : ''}
-            ${!isMatch && isCompleted ? 'bg-imperial-light text-imperial-blue' : ''}
-            ${!isCompleted ? 'bg-slate-100 text-slate-400' : ''}
+            w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm
+            ${isHighMatch ? 'bg-[#AF52DE] text-white' : ''}
+            ${isPartialMatch ? 'bg-[#34C759] text-white' : ''}
+            ${isLowMatch ? 'bg-[#0071E3] text-white' : ''}
+            ${!isMatch && isCompleted ? 'bg-[#F5F5F7] text-[#86868B]' : ''}
+            ${!isCompleted ? 'bg-[#F5F5F7] text-[#86868B]' : ''}
           `}>
-            <User className="w-5 h-5" />
+            {isHighMatch ? <Sparkles className="w-6 h-6" /> : <User className="w-6 h-6" />}
           </div>
           <div>
-            <h4 className="font-bold text-slate-800 leading-tight line-clamp-2">{data.name}</h4>
-            <div className="flex items-center gap-2 mt-1">
-               <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full ${getStatusColor(data.status)}`}>
-                 <span className="text-xs text-slate-400 capitalize">{data.status.replace('_', ' ').toLowerCase()}</span>
+            <h4 className="font-bold text-[#1D1D1F] text-lg leading-tight line-clamp-2 tracking-tight">{data.name}</h4>
+            <div className="flex items-center gap-2 mt-1.5">
+               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${getStatusColor(data.status)}`}>
+                 {getStatusLabel(data.status)}
                </span>
             </div>
           </div>
         </div>
 
-        {/* Favorite Button */}
+        {/* Favorite Button - Floating */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             onToggleFavorite(data.id);
           }}
-          className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
+          className={`mt-8 p-2 rounded-full transition-all active:scale-95 ${data.isFavorite ? 'bg-yellow-400/20 text-yellow-500' : 'bg-[#F5F5F7] text-[#D2D2D7] hover:text-[#86868B]'}`}
           title={data.isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
-          <Star className={`w-5 h-5 ${data.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-slate-300'}`} />
+          <Star className={`w-5 h-5 ${data.isFavorite ? 'fill-yellow-500' : ''}`} />
         </button>
       </div>
 
       {/* Body */}
-      <div className="p-5 flex-grow flex flex-col gap-4">
+      <div className="px-6 pb-6 flex-grow flex flex-col gap-5">
+        
+        {/* PENDING: Ready to Analyze */}
         {isPending && (
-          <div className="flex-grow flex items-center justify-center text-slate-400 text-sm italic py-8">
-            Waiting to analyze...
+          <div className="bg-[#E8F8F0] border border-[#34C759]/30 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2">
+             <div className="w-8 h-8 rounded-full bg-[#34C759] flex items-center justify-center text-white mb-1 shadow-sm">
+                <Sparkles className="w-4 h-4" />
+             </div>
+             <p className="text-[#34C759] font-bold text-sm">Author ID Verified</p>
+             <p className="text-[#34C759]/80 text-xs">Ready for batch analysis</p>
           </div>
         )}
 
+        {/* AWAITING_SCHOLAR_ID */}
         {isAwaitingScholarId && (
-          <div className="space-y-3">
-            {(() => {
-              console.log('[ResultsGrid] Checking scholarAuthorId for', data.name, ':', data.scholarAuthorId);
-              return data.scholarAuthorId;
-            })() ? (
-              // ID已经从扩展接收 - only show confirmation
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-emerald-700 font-medium mb-2">
-                  <Sparkles className="w-4 h-4" />
-                  Author ID Received!
+          <div className="flex flex-col gap-3">
+             <div className="text-sm text-[#86868B] text-center bg-[#F5F5F7] rounded-xl p-4">
+                 Step 1: Link Scholar Profile
+             </div>
+             <button
+               onClick={handleOpenScholar}
+               className="w-full h-10 flex items-center justify-center gap-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-xl font-medium text-sm transition-all shadow-sm hover:shadow-md active:scale-95"
+             >
+               <Search className="w-4 h-4" />
+               Find on Google Scholar
+             </button>
+             
+             <div className="relative pt-2">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-[#D2D2D7]/50"></div>
                 </div>
-                <div className="text-sm text-emerald-600">
-                  ID: <code className="bg-emerald-100 px-2 py-0.5 rounded">{data.scholarAuthorId}</code>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-2 text-[10px] text-[#86868B] uppercase tracking-wide">Or paste ID</span>
                 </div>
-                <div className="text-xs text-emerald-600 mt-2">
-                  ✓ Ready for batch analysis
-                </div>
-              </div>
-            ) : (
-              // 还没有ID，显示原来的界面
-              <>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Click the button below to open Google Scholar, then use the extension to select the correct author.
-                </p>
-                
-                <button
-                  onClick={handleOpenScholar}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors border border-blue-200"
-                >
-                  <Search className="w-4 h-4" />
-                  Open Google Scholar
-                </button>
+             </div>
 
-                <div className="pt-2">
-                  <label className="block text-xs font-medium text-slate-600 mb-2">
-                    Or manually paste Scholar Author ID:
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={scholarIdInput}
-                      onChange={(e) => setScholarIdInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSubmitScholarId()}
-                      placeholder="LSsXyncAAAAJ"
-                      className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-imperial-accent focus:border-transparent"
-                    />
-                    <button
-                      onClick={handleSubmitScholarId}
-                      disabled={!scholarIdInput.trim()}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                    >
-                      <Clipboard className="w-4 h-4" />
-                      Submit
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-2">
-                    💡 Tip: Install the Chrome extension for automatic ID extraction
-                  </p>
-                </div>
-              </>
-            )}
+             <div className="flex gap-2">
+                 <input
+                   type="text"
+                   value={scholarIdInput}
+                   onChange={(e) => setScholarIdInput(e.target.value)}
+                   onKeyDown={(e) => e.key === 'Enter' && handleSubmitScholarId()}
+                   placeholder="e.g. LSsXyncAAAAJ"
+                   className="flex-1 h-9 px-3 text-sm bg-[#F5F5F7] border-0 rounded-lg focus:ring-2 focus:ring-[#0071E3] placeholder:text-[#86868B]/70"
+                 />
+                 <button
+                   onClick={handleSubmitScholarId}
+                   disabled={!scholarIdInput.trim()}
+                   className="px-3 h-9 bg-black text-white rounded-lg text-sm font-medium hover:bg-black/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                 >
+                   Save
+                 </button>
+             </div>
           </div>
         )}
 
+        {/* LOADING */}
         {isLoading && (
-          <div className="space-y-3 py-2 animate-pulse">
-            <div className="h-4 bg-slate-100 rounded w-3/4"></div>
-            <div className="h-4 bg-slate-100 rounded w-full"></div>
-            <div className="h-4 bg-slate-100 rounded w-5/6"></div>
-            <div className="flex gap-2 mt-4">
-              <div className="h-6 bg-slate-100 rounded-full w-16"></div>
-              <div className="h-6 bg-slate-100 rounded-full w-20"></div>
+          <div className="space-y-4 py-4 animate-pulse">
+            <div className="flex gap-3">
+              <div className="w-1 h-12 bg-[#F5F5F7] rounded-full"></div>
+              <div className="flex-1 space-y-2">
+                 <div className="h-4 bg-[#F5F5F7] rounded w-3/4"></div>
+                 <div className="h-4 bg-[#F5F5F7] rounded w-full"></div>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <div className="h-6 bg-[#F5F5F7] rounded-md w-16"></div>
+              <div className="h-6 bg-[#F5F5F7] rounded-md w-12"></div>
+              <div className="h-6 bg-[#F5F5F7] rounded-md w-20"></div>
             </div>
           </div>
         )}
 
+        {/* ERROR */}
         {isError && (
-          <div className="flex flex-col items-center justify-center py-4 text-center">
-            <p className="text-red-500 text-sm mb-3">Unable to fetch research data.</p>
+          <div className="flex flex-col items-center justify-center p-6 bg-[#FFF2F2] rounded-2xl border border-red-100 text-center">
+            <p className="text-red-500 font-semibold text-sm mb-1">Analysis Failed</p>
+            <p className="text-red-400 text-xs mb-3">Could not fetch publications</p>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -273,108 +259,110 @@ const ResearcherCard: React.FC<{
                    onScholarIdSubmit(data.id, data.scholarAuthorId);
                 }
               }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-white text-red-500 text-xs font-bold rounded-full shadow-sm hover:shadow-md transition-all"
             >
               <RotateCw className="w-3 h-3" />
-              Retry Analysis
+              Try Again
             </button>
           </div>
         )}
 
+        {/* COMPLETED: RESULTS */}
         {isCompleted && (
-          <>
-            <div className="text-sm text-slate-600 leading-relaxed">
-              <BrainCircuit className="w-4 h-4 inline-block mr-1.5 text-imperial-accent mb-0.5" />
-              {data.interests}
-            </div>
-            
+          <div className="flex flex-col h-full">
+            {/* Match Reason Module */}
             {data.matchReason && isMatch && (
-               <div className={`text-xs p-2.5 rounded-md border italic
-                 ${isHighMatch ? 'bg-purple-50 text-purple-800 border-purple-100' : ''}
-                 ${isPartialMatch ? 'bg-emerald-50 text-emerald-800 border-emerald-100' : ''}
-                 ${isLowMatch ? 'bg-blue-50 text-blue-800 border-blue-100' : ''}
-                 ${!isHighMatch && !isPartialMatch && !isLowMatch ? 'bg-slate-50 text-slate-600 border-slate-100' : ''}
+               <div className={`p-4 rounded-xl text-sm leading-relaxed mb-4 font-medium border
+                 ${isHighMatch ? 'bg-[#AF52DE]/5 text-[#AF52DE] border-[#AF52DE]/10' : ''}
+                 ${isPartialMatch ? 'bg-[#34C759]/5 text-[#34C759] border-[#34C759]/10' : ''}
+                 ${isLowMatch ? 'bg-[#0071E3]/5 text-[#0071E3] border-[#0071E3]/10' : ''}
+                 ${!isHighMatch && !isPartialMatch && !isLowMatch ? 'bg-[#F5F5F7] text-[#86868B] border-transparent' : ''}
                `}>
                  "{data.matchReason}"
                </div>
             )}
+            
+            {!isMatch && (
+              <div className="text-sm text-[#1D1D1F] leading-relaxed mb-4">
+                 {data.interests}
+              </div>
+            )}
 
-            <div className="flex flex-wrap gap-2 mt-auto pt-2">
+            {/* Keywords / Tags */}
+            <div className="flex flex-wrap gap-2 content-start">
               {data.tags?.map((tag, idx) => (
                 <div key={idx} className="group relative inline-block">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-help hover:bg-emerald-200 transition-colors">
-                    <Tag className="w-3 h-3 mr-1 opacity-50" />
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#F5F5F7] text-[#1D1D1F] border border-transparent hover:border-[#D2D2D7] cursor-help transition-all">
+                    <Tag className="w-3 h-3 mr-1.5 text-[#86868B]" />
                     {tag.keyword}
                   </span>
                   
-                  {/* Tooltip */}
-                  <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 w-80 bg-white border border-slate-200 rounded-lg shadow-xl p-4 text-left">
-                    <div className="space-y-2">
+                  {/* Apple Popover Tooltip */}
+                  <div className="absolute bottom-full left-0 mb-3 hidden group-hover:block z-50 w-72 bg-white/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl ring-1 ring-black/5 p-5 text-left animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div className="space-y-3">
                       <div>
-                        <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Relevance</div>
-                        <div className="text-sm text-slate-700">{tag.reasoning}</div>
+                        <div className="text-[10px] font-bold text-[#86868B] uppercase tracking-wide mb-1">Relevance</div>
+                        <div className="text-sm font-medium text-[#1D1D1F] leading-snug">{tag.reasoning}</div>
                       </div>
                       
                       {tag.supportingPapers && tag.supportingPapers.length > 0 && (
                         <div>
-                          <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Supporting Publications</div>
-                          <ul className="space-y-1.5">
+                          <div className="text-[10px] font-bold text-[#86868B] uppercase tracking-wide mb-2 pt-2 border-t border-black/5">Evidence</div>
+                          <ul className="space-y-2">
                             {tag.supportingPapers.map((paper, pIdx) => (
-                              <li key={pIdx} className="text-xs text-slate-600 leading-relaxed">
-                                • {paper.title} {paper.year && `(${paper.year})`} 
-                                {paper.citations !== undefined && (
-                                  <span className="text-slate-400 ml-1">- {paper.citations} citations</span>
-                                )}
+                              <li key={pIdx} className="text-[10px] text-[#424245] leading-snug pl-2 border-l-2 border-[#0071E3]/50">
+                                <span className="font-semibold text-[#1D1D1F] block mb-0.5">{paper.title}</span>
+                                {paper.year} · {paper.citations} citations
                               </li>
                             ))}
                           </ul>
                         </div>
                       )}
                     </div>
-                    {/* Arrow */}
-                    <div className="absolute -bottom-1 left-4 w-2 h-2 bg-white border-r border-b border-slate-200 transform rotate-45"></div>
                   </div>
                 </div>
               ))}
             </div>
-          </>
+
+            {/* Bottom Actions */}
+            {data.profileUrl && (
+              <div className="mt-auto pt-6 flex justify-end">
+                <a 
+                  href={data.profileUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="group flex items-center gap-1.5 text-xs font-semibold text-[#0071E3] hover:text-[#0077ED] transition-colors"
+                >
+                  View Scholar Profile 
+                  <ExternalLink className="w-3 h-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </a>
+              </div>
+            )}
+          </div>
         )}
       </div>
-
-      {/* Footer / Link */}
-      {isCompleted && data.profileUrl && (
-        <div className="p-3 bg-slate-50 border-t border-slate-100 rounded-b-xl flex justify-end">
-          <a 
-            href={data.profileUrl} 
-            target="_blank" 
-            rel="noreferrer"
-            className="text-xs font-medium text-imperial-accent hover:text-imperial-blue flex items-center gap-1 transition-colors"
-          >
-            View Profile <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
-      )}
     </div>
   );
 };
 
 // Helpers
+// Helpers
 function getStatusColor(status: AnalysisStatus) {
   switch (status) {
-    case AnalysisStatus.PENDING: return 'bg-slate-100 text-slate-500';
-    case AnalysisStatus.AWAITING_SCHOLAR_ID: return 'bg-amber-100 text-amber-700';
-    case AnalysisStatus.LOADING: return 'bg-blue-100 text-blue-700';
-    case AnalysisStatus.COMPLETED: return 'bg-emerald-100 text-emerald-700';
-    case AnalysisStatus.ERROR: return 'bg-red-100 text-red-700';
-    default: return 'bg-slate-100 text-slate-500';
+    case AnalysisStatus.PENDING: return 'bg-[#34C759]/10 text-[#34C759]';
+    case AnalysisStatus.AWAITING_SCHOLAR_ID: return 'bg-[#FF9500]/10 text-[#FF9500]';
+    case AnalysisStatus.LOADING: return 'bg-[#0071E3]/10 text-[#0071E3]';
+    case AnalysisStatus.COMPLETED: return 'bg-[#86868B]/10 text-[#86868B]';
+    case AnalysisStatus.ERROR: return 'bg-[#FF3B30]/10 text-[#FF3B30]';
+    default: return 'bg-[#E8E8ED] text-[#86868B]';
   }
 }
 
 function getStatusLabel(status: AnalysisStatus) {
   switch (status) {
-    case AnalysisStatus.PENDING: return 'Queued';
-    case AnalysisStatus.AWAITING_SCHOLAR_ID: return 'Need Scholar ID';
-    case AnalysisStatus.LOADING: return 'Analyzing...';
+    case AnalysisStatus.PENDING: return 'Ready To Analyze';
+    case AnalysisStatus.AWAITING_SCHOLAR_ID: return 'Needs ID';
+    case AnalysisStatus.LOADING: return 'Analyzing';
     case AnalysisStatus.COMPLETED: return 'Analyzed';
     case AnalysisStatus.ERROR: return 'Failed';
   }

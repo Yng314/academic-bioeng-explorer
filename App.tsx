@@ -4,7 +4,7 @@ import { fetchScholarPublications } from './services/serpApiService';
 import { Researcher, AnalysisStatus } from './types';
 import { InputSection } from './components/InputSection';
 import { ResultsGrid } from './components/ResultsGrid';
-import { FlaskConical, AlertCircle, Loader2, Play, Search, Star, LayoutGrid, RotateCw } from 'lucide-react';
+import { FlaskConical, AlertCircle, Loader2, Play, Search, Star, LayoutGrid, RotateCw, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [userInterests, setUserInterests] = useState('');
@@ -67,7 +67,7 @@ export default function App() {
           r.id === researcherId ? {
             ...r,
             scholarAuthorId: authorId,
-            status: AnalysisStatus.AWAITING_SCHOLAR_ID
+            status: AnalysisStatus.PENDING
           } : r
         );
         console.log('[Web App] Updated researchers with URL data:', updated);
@@ -324,159 +324,134 @@ export default function App() {
         </div>
       )}
 
-      {/* Header */}
-      <header className="bg-imperial-blue text-white shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      {/* Apple-style Glass Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-white/20 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] transition-all">
+        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/10 rounded-lg">
-              <FlaskConical className="w-6 h-6 text-white" />
+            <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
+              <FlaskConical className="w-4 h-4" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">Professor Matcher</h1>
-              <p className="text-xs text-imperial-light opacity-80">AI-Powered Supervisor Matcher</p>
-            </div>
+            <h1 className="text-sm font-semibold tracking-wide text-[#1D1D1F]">
+              Professor Matcher
+            </h1>
           </div>
-          <div className="text-right hidden sm:block">
-            <p className="text-xs text-white/60">Powered by Yng</p>
+          
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 text-[11px] font-medium text-[#86868B] bg-[#F5F5F7] px-3 py-1 rounded-full">
+              <Sparkles className="w-3 h-3 text-[#0071E3]" />
+              <span>AI-Powered by Gemini 3 Pro</span>
+            </div>
           </div>
         </div>
       </header>
-
-      <main className="flex-grow max-w-7xl mx-auto px-4 py-8 w-full space-y-8">
-        
-
-
-        {/* Input Area */}
+      
+      {/* Full-Width Input Section (Collapsible) */}
+      <div className="relative z-30">
         <InputSection 
-          userInterests={userInterests}
+          userInterests={userInterests} 
           setUserInterests={setUserInterests}
-          rawText={rawText} 
-          setRawText={setRawText} 
+          rawText={rawText}
+          setRawText={setRawText}
           onExtract={handleExtractNames}
           isExtracting={isExtracting}
           hasResults={researchers.length > 0}
         />
+      </div>
 
-        {/* Error Display */}
+      {/* Main Content Area */}
+      <main className="flex-grow w-full">
+        
+        {/* Error Display (Centered) */}
         {error && (
-          <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5" />
-            <p>{error}</p>
+           <div className="max-w-7xl mx-auto px-6 py-6 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5" />
+              <p className="text-sm font-medium">{error}</p>
+            </div>
           </div>
         )}
+      </main>
 
-        {/* Status Bar (if names exist) */}
-        {researchers.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4 sticky top-20 z-40">
-            <div className="flex items-center gap-4">
-               <span className="text-slate-600 font-medium">
-                  Found <span className="text-imperial-blue font-bold">{researchers.length}</span> researchers
+      {/* Full-Width Sticky Action Bar */}
+      {researchers.length > 0 && (
+        <div className="sticky top-14 z-40 bg-[#F5F5F7]/85 backdrop-blur-xl border-b border-black/5 shadow-sm w-full transition-all">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+             <div className="flex items-center gap-2">
+               <h2 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
+                 Analysis Results
+               </h2>
+               <span className="bg-[#E8E8ED] text-[#1D1D1F] text-xs font-bold px-2.5 py-1 rounded-full">
+                 {researchers.length}
                </span>
-               <div className="h-4 w-px bg-slate-200"></div>
-               <div className="text-sm text-slate-500">
-                  {researchers.filter(r => r.status === AnalysisStatus.COMPLETED).length} analyzed
-               </div>
-               <div className="h-4 w-px bg-slate-200"></div>
-               <div className="text-sm text-slate-500">
-                  {researchers.filter(r => r.scholarAuthorId && r.status === AnalysisStatus.AWAITING_SCHOLAR_ID).length} ready to analyze
-               </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {/* Analyze All Button */}
-              {researchers.filter(r => r.scholarAuthorId && r.status === AnalysisStatus.AWAITING_SCHOLAR_ID).length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleAnalyzeAll}
-                  disabled={!!currentAnalyzingName}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <Play className="w-4 h-4" />
-                  Analyze All ({researchers.filter(r => r.scholarAuthorId && r.status === AnalysisStatus.AWAITING_SCHOLAR_ID).length})
-                </button>
-              )}
-              
-              <button
-                type="button"
-                onClick={handleClearAll}
-                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium transition-colors flex items-center gap-2 border border-red-200"
-              >
-                <AlertCircle className="w-4 h-4" />
-                Clear All
-              </button>
-              
-              {/* Retry Failed Button */}
-              {researchers.some(r => r.status === AnalysisStatus.ERROR) && (
-                <button
-                  type="button"
-                  onClick={handleRetryFailed}
-                  disabled={!!currentAnalyzingName}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-lg font-medium transition-colors flex items-center gap-2 border border-slate-200"
-                  title="Retry failed analyses"
-                >
-                  <RotateCw className={`w-4 h-4 ${!!currentAnalyzingName ? 'animate-spin' : ''}`} />
-                  Retry Failed ({researchers.filter(r => r.status === AnalysisStatus.ERROR).length})
-                </button>
-              )}
-            </div>
-            
-            {currentAnalyzingName && (
-              <div className="flex items-center gap-2 text-sm text-blue-700">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Analyzing {currentAnalyzingName}...
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tabs and Results */}
-        {researchers.length > 0 && (
-          <div className="flex gap-2 border-b border-slate-200 mb-6">
-            <button
-              onClick={() => setViewMode('all')}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
-                viewMode === 'all' 
-                  ? 'border-imperial-blue text-imperial-blue' 
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <LayoutGrid className="w-4 h-4" />
-              All Results
-              <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">
-                {researchers.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setViewMode('favorites')}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
-                viewMode === 'favorites' 
-                  ? 'border-yellow-400 text-slate-800' 
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Star className={`w-4 h-4 ${viewMode === 'favorites' ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-              Favorites
-              <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">
-                {researchers.filter(r => r.isFavorite).length}
-              </span>
-            </button>
-          </div>
-        )}
-
-        {viewMode === 'favorites' && displayedResearchers.length === 0 && researchers.length > 0 ? (
-           <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
-             <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3">
-               <Star className="w-6 h-6 text-yellow-400" />
              </div>
-             <h3 className="text-slate-800 font-medium mb-1">No favorites yet</h3>
-             <p className="text-slate-500 text-sm">Star researchers to save them here.</p>
-           </div>
-        ) : (
-          <ResultsGrid 
-            researchers={displayedResearchers} 
-            onScholarIdSubmit={handleScholarIdSubmit}
-            onToggleFavorite={handleToggleFavorite}
-          />
+             
+             <div className="flex items-center gap-3 bg-white/60 backdrop-blur-sm p-1.5 rounded-full shadow-sm border border-white/40">
+                <button
+                  onClick={handleAnalyzeAll}
+                  disabled={isExtracting}
+                  className="flex items-center gap-2 px-5 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition-all shadow-apple hover:shadow-apple-hover active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  Batch Analyze
+                </button>
+                
+                <div className="w-px h-6 bg-slate-200"></div>
+
+                <div className="flex bg-[#E8E8ED] p-1 rounded-full">
+                  <button 
+                    onClick={() => setViewMode('all')}
+                    className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      viewMode === 'all' 
+                        ? 'bg-white text-[#1D1D1F] shadow-sm' 
+                        : 'text-[#86868B] hover:text-[#1D1D1F]'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('favorites')}
+                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      viewMode === 'favorites' 
+                        ? 'bg-white text-[#1D1D1F] shadow-sm' 
+                        : 'text-[#86868B] hover:text-[#1D1D1F]'
+                    }`}
+                  >
+                    <Star className={`w-3 h-3 ${viewMode === 'favorites' ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                    Favorites
+                  </button>
+                </div>
+                
+                <button
+                  onClick={handleClearAll}
+                  className="p-2 text-[#86868B] hover:text-red-600 hover:bg-red-50 rounded-full transition-colors relative group"
+                  title="Clear All Data"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Results Content Area */}
+      <div className="max-w-7xl mx-auto px-6 pb-20 space-y-8 pt-6">
+        {/* Results Logic */}
+        {researchers.length > 0 && (
+           viewMode === 'favorites' && displayedResearchers.length === 0 ? (
+             <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+               <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                 <Star className="w-6 h-6 text-yellow-400" />
+               </div>
+               <h3 className="text-slate-800 font-medium mb-1">No favorites yet</h3>
+               <p className="text-slate-500 text-sm">Star researchers to save them here.</p>
+             </div>
+           ) : (
+             <ResultsGrid 
+               researchers={displayedResearchers} 
+               onScholarIdSubmit={handleScholarIdSubmit}
+               onToggleFavorite={handleToggleFavorite}
+             />
+           )
         )}
 
         {/* Intro / Instructions (Moved to bottom) */}
@@ -495,8 +470,7 @@ export default function App() {
              4. Click "Analyze All" to process.
           </p>
         </section>
-
-      </main>
+      </div>
 
       <footer className="py-6 text-center text-slate-400 text-sm">
         <p>&copy; {new Date().getFullYear()} Research Explorer.</p>

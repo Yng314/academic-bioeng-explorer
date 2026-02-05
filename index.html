@@ -5,16 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Academic Research Explorer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    </style>
     <script>
       tailwind.config = {
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            },
             colors: {
+              apple: {
+                gray: '#F5F5F7',  // Main Background
+                card: '#FFFFFF',  // Card Background
+                text: '#1D1D1F',  // Primary Text
+                subtext: '#86868B', // Secondary Text
+                blue: '#0071E3',  // Action Blue
+                border: '#D2D2D7' // Border
+              },
               imperial: {
                 blue: '#002147',
                 light: '#EBF3F9',
-                accent: '#006E90'
+                accent: '#0071E3' // Updated to match Apple Blue for consistency
               }
+            },
+            boxShadow: {
+              'apple': '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02)',
+              'apple-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02)',
             }
           }
         }
@@ -33,7 +51,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-slate-50 text-slate-900 font-sans">
+  <body class="bg-[#F5F5F7] text-[#1D1D1F] font-sans antialiased selection:bg-[#0071E3] selection:text-white">
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
