@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Researcher, MatchType } from '../types';
 import { generateCustomizedLetter } from '../services/geminiService';
-import { Sparkles, Wand2, Eye, FileText, Check, X, Copy } from 'lucide-react';
+import { Sparkles, Wand2, Eye, FileText, Check, X, Copy, Mail } from 'lucide-react';
 
 interface CustomizeLetterSectionProps {
   favoriteResearchers: Researcher[];
   letterTemplate: string;
+  emailTitle: string;
   userInterests: string;
   onUpdateResearcher: (id: string, updates: Partial<Researcher>) => void;
 }
@@ -13,6 +14,7 @@ interface CustomizeLetterSectionProps {
 export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
   favoriteResearchers,
   letterTemplate,
+  emailTitle,
   userInterests,
   onUpdateResearcher
 }) => {
@@ -53,12 +55,12 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
            </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {favoriteResearchers.map(researcher => {
             const hasLetter = !!researcher.customizedLetter;
             
             return (
-              <div key={researcher.id} className="relative bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-all">
+              <div key={researcher.id} className="relative bg-white rounded-2xl p-10 shadow-sm border border-slate-200 hover:shadow-md transition-all">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-lg font-bold text-[#1D1D1F] leading-tight mb-2">
@@ -146,40 +148,52 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
 
       {/* View Letter Modal */}
       {viewLetterId && selectedResearcherForView && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-[#F5F5F7]/50">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+           <div className="bg-white/90 backdrop-blur-2xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-modal-in border border-white/20">
+              <div className="px-6 py-4 flex items-center justify-between">
                  <h3 className="font-semibold text-[#1D1D1F] flex items-center gap-2">
                     <FileText className="w-4 h-4 text-[#0071E3]" />
                     Draft for {selectedResearcherForView.name}
                  </h3>
                  <button 
                    onClick={() => setViewLetterId(null)}
-                   className="p-1.5 rounded-full hover:bg-slate-200/50 text-slate-500 transition-colors"
+                   className="p-1.5 rounded-full hover:bg-black/5 text-slate-500 transition-colors"
                  >
                    <X className="w-5 h-5" />
                  </button>
               </div>
               
-              <div className="p-6 overflow-y-auto flex-1 bg-white">
+              <div className="p-6 overflow-y-auto flex-1 bg-transparent">
                  <div className="prose prose-sm max-w-none font-mono text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
                     {selectedResearcherForView.customizedLetter}
                  </div>
               </div>
-
-              <div className="px-6 py-4 border-t border-slate-100 bg-[#F5F5F7]/30 flex justify-end gap-3">
+ 
+              <div className="px-6 py-4 flex justify-end gap-3">
+                 <button
+                   onClick={() => {
+                     const subject = emailTitle || `Inquiry regarding your research - academic-bioeng-explorer`;
+                     const body = selectedResearcherForView.customizedLetter || '';
+                     const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                     window.location.href = mailtoLink;
+                   }}
+                   className="flex items-center gap-2 px-4 py-2 bg-[#0071E3] text-white rounded-lg text-sm font-medium hover:bg-[#0077ED] transition-colors shadow-sm"
+                 >
+                    <Mail className="w-4 h-4" />
+                    Send Email
+                 </button>
                  <button
                    onClick={() => {
                      navigator.clipboard.writeText(selectedResearcherForView.customizedLetter || '');
                    }}
-                   className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700 transition-colors"
+                   className="flex items-center gap-2 px-4 py-2 bg-white/50 border border-black/5 rounded-lg text-sm font-medium hover:bg-white text-slate-700 transition-colors"
                  >
                    <Copy className="w-4 h-4" />
                    Copy to Clipboard
                  </button>
                  <button
                    onClick={() => setViewLetterId(null)}
-                   className="px-4 py-2 bg-[#0071E3] text-white rounded-lg text-sm font-medium hover:bg-[#0077ED] transition-colors shadow-sm"
+                   className="px-4 py-2 bg-black/5 text-slate-700 border border-black/5 rounded-lg text-sm font-medium hover:bg-black/10 transition-colors"
                  >
                    Done
                  </button>

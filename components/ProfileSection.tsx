@@ -6,13 +6,17 @@ interface ProfileSectionProps {
   setUserInterests: (s: string) => void;
   letterTemplate: string;
   setLetterTemplate: (s: string) => void;
+  emailTitle: string;
+  setEmailTitle: (s: string) => void;
 }
 
 export const ProfileSection: React.FC<ProfileSectionProps> = ({ 
   userInterests,
   setUserInterests,
   letterTemplate,
-  setLetterTemplate
+  setLetterTemplate,
+  emailTitle,
+  setEmailTitle
 }) => {
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -62,12 +66,28 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
              <p className="text-sm text-[#86868B] leading-relaxed">
               Draft your outreach email template. The AI will automatically customize this for each matched professor using their specific research topics.
             </p>
-            <textarea
-              className="w-full h-64 p-4 text-sm leading-relaxed border border-[#D2D2D7] bg-[#F5F5F7]/30 rounded-xl focus:ring-4 focus:ring-[#34C759]/20 focus:border-[#34C759] outline-none resize-y text-[#1D1D1F] placeholder:text-[#86868B] transition-all font-mono"
-              placeholder="Dear Professor [Name],&#10;&#10;I am writing to express my interest in your research on..."
-              value={letterTemplate}
-              onChange={(e) => setLetterTemplate(e.target.value)}
-            />
+            <div className="space-y-4">
+               <div className="space-y-2">
+                 <label className="text-xs font-bold text-[#1D1D1F] uppercase tracking-wider px-1">Email Title (Subject)</label>
+                 <input 
+                   type="text" 
+                   value={emailTitle}
+                   onChange={(e) => setEmailTitle(e.target.value)}
+                   placeholder="e.g. Inquiry regarding your research on [Topic]"
+                   className="w-full text-sm p-4 border border-[#D2D2D7] bg-[#F5F5F7]/30 rounded-xl focus:ring-4 focus:ring-[#34C759]/20 focus:border-[#34C759] outline-none text-[#1D1D1F] placeholder:text-[#86868B] transition-all font-medium"
+                 />
+               </div>
+               
+               <div className="space-y-2">
+                 <label className="text-xs font-bold text-[#1D1D1F] uppercase tracking-wider px-1">Email Template</label>
+                 <textarea
+                   className="w-full h-64 p-4 text-sm leading-relaxed border border-[#D2D2D7] bg-[#F5F5F7]/30 rounded-xl focus:ring-4 focus:ring-[#34C759]/20 focus:border-[#34C759] outline-none resize-y text-[#1D1D1F] placeholder:text-[#86868B] transition-all font-mono"
+                   placeholder="Dear Professor [Name],&#10;&#10;I am writing to express my interest in your research on..."
+                   value={letterTemplate}
+                   onChange={(e) => setLetterTemplate(e.target.value)}
+                 />
+               </div>
+            </div>
              <p className="text-[11px] text-[#86868B] px-1">
                 Tip: Use placeholders like [Name] or [Topic]. The AI will adapt the content around them.
               </p>
