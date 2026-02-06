@@ -364,7 +364,7 @@ export default function App() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
           <div className="bg-white/80 backdrop-blur-2xl rounded-2xl shadow-2xl w-full max-w-2xl animate-modal-in overflow-hidden border border-white/20">
             <div className="p-6 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Extract Name</h3>
+              <h3 className="text-xl font-bold text-slate-900">Add Professors</h3>
               <button 
                 onClick={() => setIsExtractModalOpen(false)}
                 className="p-2 hover:bg-black/5 rounded-full transition-colors"
@@ -463,7 +463,7 @@ export default function App() {
                     </div>
                     <h3 className="text-3xl font-bold text-[#1D1D1F] mb-4 tracking-tight">Ready to Explore?</h3>
                     <p className="text-[#86868B] text-center max-w-lg leading-relaxed text-lg">
-                      Click the <span className="text-[#0071E3] font-bold">Extract Name</span> button in the bottom bar 
+                      Click the <span className="text-[#0071E3] font-bold">Add Professors</span> button in the bottom bar 
                       to paste and analyze your list of researchers.
                     </p>
                   </div>
@@ -495,11 +495,11 @@ export default function App() {
                      <div className="flex items-center gap-6">
                        {/* Title & Badge */}
                        <div className="flex items-center gap-3">
-                         <h2 className="text-l font-semibold tracking-wide text-[#1D1D1F]">
-                           Analysis Results
+                         <h2 className="text-xl font-semibold tracking-wide text-[#1D1D1F]">
+                           Analysis
                          </h2>
-                         <span className="bg-[#E8E8ED] text-[#1D1D1F] text-[10px] font-bold px-2 py-0.5 rounded-full">
-                           {researchers.length}
+                         <span className="bg-[#E8E8ED] text-[#1D1D1F] text-[12px] font-bold px-2 py-0.5 rounded-full">
+                           {researchers.length} Professors
                          </span>
                        </div>
 
@@ -508,7 +508,7 @@ export default function App() {
                          className="flex items-center gap-2 px-4 py-2 bg-white/60 hover:bg-white border border-black/5 text-[#1D1D1F] rounded-full text-xs font-semibold transition-all shadow-sm active:scale-95"
                        >
                          <Search className="w-3.5 h-3.5" />
-                         Extract Name
+                         Add Professors
                        </button>
                      </div>
                      
