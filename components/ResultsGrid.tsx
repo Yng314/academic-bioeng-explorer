@@ -150,23 +150,9 @@ const ResearcherCard: React.FC<{
   const isPartialMatch = data.matchType === 'PARTIAL';
   const isLowMatch = data.matchType === 'LOW';
 
-  // Store reference to Scholar window to reuse it
-  const scholarWindowRef = useRef<Window | null>(null);
-
   const handleOpenScholar = () => {
     const url = generateScholarSearchUrl(data.name, data.id);
-    
-    // Check if Scholar window is still open
-    if (scholarWindowRef.current && !scholarWindowRef.current.closed) {
-      // Reuse existing window
-      scholarWindowRef.current.location.href = url;
-      scholarWindowRef.current.focus();
-      console.log('[ResultsGrid] Reusing existing Scholar window');
-    } else {
-      // Open new window and save reference
-      scholarWindowRef.current = window.open(url, 'scholarWindow');
-      console.log('[ResultsGrid] Opened new Scholar window');
-    }
+    window.location.href = url;
   };
 
   const handleSubmitScholarId = () => {
