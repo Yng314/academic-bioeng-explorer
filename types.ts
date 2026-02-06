@@ -23,6 +23,11 @@ export enum MatchType {
   HIGH = 'HIGH'        // >= 80% matches
 }
 
+export enum EmailStatus {
+  NOT_SENT = 'NOT_SENT',
+  SENT = 'SENT'
+}
+
 export interface Researcher {
   id: string;
   name: string;
@@ -31,17 +36,18 @@ export interface Researcher {
   interests?: string;
   tags?: KeywordEvidence[]; // Enhanced with evidence
   profileUrl?: string;
+  avatarUrl?: string;
   isMatch?: boolean;
   matchType?: MatchType;
   matchReason?: string;
   isFavorite?: boolean;
   customizedLetter?: string;
+  emailStatus?: EmailStatus;
 }
 
 export interface AnalysisResult {
   summary: string;
   keywords: KeywordEvidence[]; // Enhanced with evidence
-  url?: string;
   isMatch: boolean;
   matchType?: MatchType;
   matchReason?: string;

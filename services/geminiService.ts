@@ -30,7 +30,14 @@ export const extractNamesFromText = async (text: string): Promise<string[]> => {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Extract all names of academic staff, professors, lecturers, and researchers from the following text. 
-      Ignore administrative staff if possible. Return strictly a JSON list.
+      
+      CRITICAL RULES:
+      1. RETURN ONLY THE NAMES.
+      2. EXCLUDE all professional titles (e.g., Dr., Prof., Professor, PhD, MD, Assistant Professor, etc.).
+      3. Use Proper Case (e.g., "John Doe", not "JOHN DOE" or "john doe").
+      4. Ignore administrative or technical support staff.
+      
+      Return strictly a JSON list of strings.
       
       Text to process:
       ${text.substring(0, 30000)}`, // Truncate if too huge to avoid error, though 3-flash context is huge.
@@ -40,7 +47,7 @@ export const extractNamesFromText = async (text: string): Promise<string[]> => {
       }
     });
 
-    const jsonStr = response.text || "{}";
+    const jsonStr = cleanJsonString(response.text || "{}");
     const parsed = JSON.parse(jsonStr);
     return parsed.names || [];
 
@@ -169,8 +176,6 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
     return {
       summary: parsed.summary || "No summary available.",
       keywords: parsed.keywords || [],
-      url: scholarData.articles[0]?.citation ? 
-        `https://scholar.google.com/citations?user=${name}` : undefined,
       isMatch: isMatch,
       matchType: matchType as any,
       matchReason: parsed.matchReason || undefined
@@ -181,7 +186,6 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
     return {
       summary: "Failed to analyze publications.",
       keywords: [],
-      url: undefined,
       isMatch: false
     };
   }

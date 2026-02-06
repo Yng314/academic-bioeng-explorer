@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Researcher, MatchType } from '../types';
+import { Researcher, MatchType, EmailStatus } from '../types';
 import { generateCustomizedLetter } from '../services/geminiService';
 import { Sparkles, Wand2, Eye, FileText, Check, X, Copy, Mail } from 'lucide-react';
 
@@ -42,7 +42,7 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
   const selectedResearcherForView = favoriteResearchers.find(r => r.id === viewLetterId);
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-6 py-8 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+    <div className="w-full max-w-7xl mx-auto px-6 pt-6 pb-20 space-y-6 animate-in fade-in slide-in-from-bottom-4">
       
       {favoriteResearchers.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-[24px] border border-dashed border-slate-300">
@@ -60,37 +60,60 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
             const hasLetter = !!researcher.customizedLetter;
             
             return (
-              <div key={researcher.id} className="relative bg-white rounded-2xl p-10 shadow-sm border border-slate-200 hover:shadow-md transition-all">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-[#1D1D1F] leading-tight mb-2">
-                      {researcher.name}
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Match Badge - Apple Pill Style (Absolute Position) */}
+              <div key={researcher.id} className="relative flex flex-col h-full bg-white rounded-[24px] shadow-apple hover:shadow-apple-hover border border-black/5 transition-all duration-300">
+                {/* Match Badge - Consistent placement */}
                 {researcher.matchType === MatchType.HIGH && (
-                  <div className="absolute top-4 right-4 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+                  <div className="absolute top-4 right-12 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
                     <Sparkles className="w-3 h-3 fill-current" />
                     High Match
                   </div>
                 )}
                 {researcher.matchType === MatchType.PARTIAL && (
-                  <div className="absolute top-4 right-4 bg-[#34C759]/10 text-[#34C759] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#34C759]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+                  <div className="absolute top-4 right-12 bg-[#34C759]/10 text-[#34C759] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#34C759]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
                     <Sparkles className="w-3 h-3 fill-current" />
                     Partial Match
                   </div>
                 )}
                 {researcher.matchType === MatchType.LOW && (
-                  <div className="absolute top-4 right-4 bg-[#0071E3]/10 text-[#0071E3] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#0071E3]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+                  <div className="absolute top-4 right-12 bg-[#0071E3]/10 text-[#0071E3] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#0071E3]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
                     <Sparkles className="w-3 h-3 fill-current" />
                     Low Match
                   </div>
                 )}
 
-                {/* Simplified Keywords */}
-                <div className="flex flex-wrap gap-2 mb-6">
+                {/* Header - Matching ResultsGrid p-6 pb-4 */}
+                <div className="p-6 pb-4 flex items-start justify-between gap-4 rounded-t-[24px]">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-[#F5F5F7] text-[#86868B] overflow-hidden border border-black/5">
+                      {researcher.avatarUrl ? (
+                        <img 
+                          src={researcher.avatarUrl} 
+                          alt={researcher.name} 
+                          className="w-full h-full object-cover shadow-inner"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#F5F5F7] to-[#E8E8ED] text-[#86868B] text-lg font-bold">
+                          {researcher.name[0]}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-[#1D1D1F] leading-tight tracking-tight">
+                        {researcher.name}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1.5">
+                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${getEmailStatusColor(researcher.emailStatus || EmailStatus.NOT_SENT)}`}>
+                           {getEmailStatusLabel(researcher.emailStatus || EmailStatus.NOT_SENT)}
+                         </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Body - Matching ResultsGrid px-6 pb-6 */}
+                <div className="px-6 pb-6 flex-grow flex flex-col gap-5">
+                  {/* Simplified Keywords */}
+                  <div className="flex flex-wrap gap-2">
                   {researcher.tags?.slice(0, 3).map((tag, idx) => (
                     <span key={idx} className="px-2 py-1 bg-[#F5F5F7] text-[#1D1D1F] text-xs rounded-md border border-[#D2D2D7]/50">
                       {tag.keyword}
@@ -103,42 +126,43 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
                   )}
                 </div>
 
-                {/* Actions */}
-                <div className="space-y-3">
-                  <button
-                    onClick={() => handleCustomize(researcher)}
-                    disabled={generatingId === researcher.id}
-                    className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95 ${
-                      hasLetter 
-                        ? 'bg-[#E8E8ED] text-[#1D1D1F] hover:bg-[#D2D2D7]' 
-                        : 'bg-[#0071E3] text-white hover:bg-[#0077ED] shadow-apple hover:shadow-apple-hover'
-                    }`}
-                  >
-                    {generatingId === researcher.id ? (
-                      <>
-                        <Wand2 className="w-4 h-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        {hasLetter ? 'Regenerate Letter' : 'Customize Letter'}
-                      </>
-                    )}
-                  </button>
+                  {/* Actions */}
+                  <div className="space-y-3 mt-auto">
+                    <button
+                      onClick={() => handleCustomize(researcher)}
+                      disabled={generatingId === researcher.id}
+                      className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95 ${
+                        hasLetter 
+                          ? 'bg-[#E8E8ED] text-[#1D1D1F] hover:bg-[#D2D2D7]' 
+                          : 'bg-[#0071E3] text-white hover:bg-[#0077ED] shadow-apple hover:shadow-apple-hover'
+                      }`}
+                    >
+                      {generatingId === researcher.id ? (
+                        <>
+                          <Wand2 className="w-4 h-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          {hasLetter ? 'Regenerate Letter' : 'Customize Letter'}
+                        </>
+                      )}
+                    </button>
 
-                  <button
-                    onClick={() => setViewLetterId(researcher.id)}
-                    disabled={!hasLetter}
-                    className={`w-full flex items-center justify-center gap-2 text-xs font-medium transition-colors ${
-                      hasLetter
-                        ? 'text-[#0071E3] hover:underline cursor-pointer'
-                        : 'text-[#86868B]/50 cursor-not-allowed'
-                    }`}
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    View Letter
-                  </button>
+                    <button
+                      onClick={() => setViewLetterId(researcher.id)}
+                      disabled={!hasLetter}
+                      className={`w-full flex items-center justify-center gap-2 text-xs font-medium transition-colors ${
+                        hasLetter
+                          ? 'text-[#0071E3] hover:underline cursor-pointer'
+                          : 'text-[#86868B]/50 cursor-not-allowed'
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      View Letter
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -172,7 +196,7 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
               <div className="px-6 py-4 flex justify-end gap-3">
                  <button
                    onClick={() => {
-                     const subject = emailTitle || `Inquiry regarding your research - academic-bioeng-explorer`;
+                     const subject = emailTitle || `Inquiry regarding your research - academic-outreach-explorer`;
                      const body = selectedResearcherForView.customizedLetter || '';
                      const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
                      window.location.href = mailtoLink;
@@ -205,3 +229,25 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
     </div>
   );
 };
+
+function getEmailStatusColor(status: EmailStatus) {
+  switch (status) {
+    case EmailStatus.NOT_SENT:
+      return 'bg-[#86868B]/10 text-[#86868B]'; // Gray/Neutral style
+    case EmailStatus.SENT:
+      return 'bg-[#34C759]/10 text-[#34C759]'; // Green/Success style
+    default:
+      return 'bg-[#F5F5F7] text-[#86868B]';
+  }
+}
+
+function getEmailStatusLabel(status: EmailStatus) {
+  switch (status) {
+    case EmailStatus.NOT_SENT:
+      return 'Not Sent';
+    case EmailStatus.SENT:
+      return 'Email Sent';
+    default:
+      return 'Unknown';
+  }
+}

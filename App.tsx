@@ -130,23 +130,28 @@ export default function App() {
     setError(null);
     try {
       const names = await extractNamesFromText(rawText);
-      const initialResearchers: Researcher[] = names.map(name => ({
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name,
-        status: AnalysisStatus.AWAITING_SCHOLAR_ID,
-        interests: '',
-        tags: []
-      }));
+      
+      const normalizeName = (s: string) => {
+        return s.trim().toLowerCase().split(' ').map(word => {
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+      };
+
       setResearchers(prev => {
-        const favorites = prev.filter(r => r.isFavorite);
-        const favoriteNames = new Set(favorites.map(f => f.name.toLowerCase()));
+        const existingNames = new Set(prev.map(r => r.name.toLowerCase()));
         
-        // Only valid new researchers are those not already favorited
-        const uniqueNewResearchers = initialResearchers.filter(
-          r => !favoriteNames.has(r.name.toLowerCase())
-        );
+        const newResearchers: Researcher[] = names
+          .map(name => normalizeName(name))
+          .filter(name => name.length > 0 && !existingNames.has(name.toLowerCase()))
+          .map(name => ({
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name,
+            status: AnalysisStatus.AWAITING_SCHOLAR_ID,
+            interests: '',
+            tags: []
+          }));
         
-        return [...favorites, ...uniqueNewResearchers];
+        return [...prev, ...newResearchers];
       });
       setIsExtractModalOpen(false);
       setRawText('');
@@ -174,6 +179,11 @@ export default function App() {
       // Step 1: Fetch publications from SerpAPI
       const scholarData = await fetchScholarPublications(scholarId);
 
+      // Validation: If no articles found, SerpAPI might have returned an empty profile or invalid ID
+      if (!scholarData.articles || scholarData.articles.length === 0) {
+        throw new Error("No publications found for this Scholar ID. Please verify the ID correctly matches the professor.");
+      }
+
       // Step 2: Analyze publications with Gemini
       const result = await analyzeScholarPublications(
         researcher.name,
@@ -193,6 +203,7 @@ export default function App() {
           interests: result.summary,
           tags: result.keywords,
           profileUrl: `https://scholar.google.com/citations?user=${scholarId}`,
+          avatarUrl: scholarData.thumbnail,
           isMatch: result.isMatch,
           matchType: result.matchType,
           matchReason: result.matchReason
@@ -216,14 +227,20 @@ export default function App() {
     ));
   }, []);
 
+  const handleDeleteResearcher = useCallback((id: string) => {
+    setResearchers(prev => prev.filter(r => r.id !== id));
+  }, []);
+
   // Batch analyze all researchers who have author IDs
   const handleAnalyzeAll = useCallback(async () => {
     const toAnalyze = researchers.filter(r => 
-      r.scholarAuthorId && r.status === AnalysisStatus.AWAITING_SCHOLAR_ID
+      r.scholarAuthorId && 
+      r.status !== AnalysisStatus.COMPLETED && 
+      r.status !== AnalysisStatus.LOADING
     );
 
     if (toAnalyze.length === 0) {
-      setError('No researchers with author IDs ready to analyze');
+      setError('No researchers with author IDs ready to analyze (already analyzed or missing ID)');
       return;
     }
 
@@ -439,22 +456,34 @@ export default function App() {
               {/* Results Content Area */}
               <div className="max-w-7xl mx-auto px-6 pb-20 space-y-8 pt-6 min-h-[100vh]">
                 {/* Results Logic */}
-                {researchers.length > 0 && (
-                   viewMode === 'favorites' && displayedResearchers.length === 0 ? (
-                     <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
-                       <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                         <Star className="w-6 h-6 text-yellow-400" />
-                       </div>
-                       <h3 className="text-slate-800 font-medium mb-1">No favorites yet</h3>
-                       <p className="text-slate-500 text-sm">Star researchers to save them here.</p>
-                     </div>
-                   ) : (
-                     <ResultsGrid 
-                       researchers={displayedResearchers} 
-                       onScholarIdSubmit={handleScholarIdSubmit}
-                       onToggleFavorite={handleToggleFavorite}
-                     />
-                   )
+                {researchers.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-32 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                    <div className="w-24 h-24 bg-white rounded-full shadow-apple-hover flex items-center justify-center mb-8 border border-black/5">
+                      <Sparkles className="w-12 h-12 text-[#0071E3]" />
+                    </div>
+                    <h3 className="text-3xl font-bold text-[#1D1D1F] mb-4 tracking-tight">Ready to Explore?</h3>
+                    <p className="text-[#86868B] text-center max-w-lg leading-relaxed text-lg">
+                      Click the <span className="text-[#0071E3] font-bold">Extract Name</span> button in the bottom bar 
+                      to paste and analyze your list of researchers.
+                    </p>
+                  </div>
+                ) : (
+                  viewMode === 'favorites' && displayedResearchers.length === 0 ? (
+                    <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+                      <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Star className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      <h3 className="text-slate-800 font-medium mb-1">No favorites yet</h3>
+                      <p className="text-slate-500 text-sm">Star researchers to save them here.</p>
+                    </div>
+                  ) : (
+                    <ResultsGrid 
+                      researchers={displayedResearchers} 
+                      onScholarIdSubmit={handleScholarIdSubmit}
+                      onToggleFavorite={handleToggleFavorite}
+                      onDeleteResearcher={handleDeleteResearcher}
+                    />
+                  )
                 )}
               </div>
 

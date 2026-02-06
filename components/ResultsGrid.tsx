@@ -1,15 +1,21 @@
 import React, { useState, useRef } from 'react';
 import { Researcher, AnalysisStatus } from '../types';
 import { generateScholarSearchUrl } from '../services/serpApiService';
-import { ExternalLink, User, BrainCircuit, Tag, Sparkles, Search, Clipboard, Star, RotateCw } from 'lucide-react';
+import { ExternalLink, User, BrainCircuit, Tag, Sparkles, Search, Clipboard, Star, RotateCw, X } from 'lucide-react';
 
 interface ResultsGridProps {
   researchers: Researcher[];
   onScholarIdSubmit: (researcherId: string, scholarId: string) => void;
   onToggleFavorite: (id: string) => void;
+  onDeleteResearcher: (id: string) => void;
 }
 
-export const ResultsGrid: React.FC<ResultsGridProps> = ({ researchers, onScholarIdSubmit, onToggleFavorite }) => {
+export const ResultsGrid: React.FC<ResultsGridProps> = ({ 
+  researchers, 
+  onScholarIdSubmit, 
+  onToggleFavorite,
+  onDeleteResearcher
+}) => {
   if (researchers.length === 0) return null;
 
   // Sort logic:
@@ -56,8 +62,71 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ researchers, onScholar
           data={researcher} 
           onScholarIdSubmit={onScholarIdSubmit}
           onToggleFavorite={onToggleFavorite}
+          onDeleteResearcher={onDeleteResearcher}
         />
       ))}
+    </div>
+  );
+};
+
+// Keyword Tag Component with Smart Tooltip Positioning
+const KeywordTag: React.FC<{ tag: any }> = ({ tag }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [position, setPosition] = useState<'top' | 'bottom'>('top');
+  const tagRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = () => {
+    if (tagRef.current) {
+      const rect = tagRef.current.getBoundingClientRect();
+      // If less than 280px (approx tooltip height) from top of viewport, flip it
+      if (rect.top < 400) {
+        setPosition('bottom');
+      } else {
+        setPosition('top');
+      }
+    }
+    setShowTooltip(true);
+  };
+
+  return (
+    <div 
+      ref={tagRef}
+      className="group relative inline-block"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#F5F5F7] text-[#1D1D1F] border border-transparent hover:border-[#D2D2D7] cursor-help transition-all">
+        <Tag className="w-3 h-3 mr-1.5 text-[#86868B]" />
+        {tag.keyword}
+      </span>
+      
+      {showTooltip && (
+        <div className={`
+          absolute left-0 z-50 w-72 bg-white/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl ring-1 ring-black/5 p-5 text-left animate-in fade-in duration-200
+          ${position === 'top' ? 'bottom-full mb-3 slide-in-from-bottom-2' : 'top-full mt-3 slide-in-from-top-2'}
+        `}>
+          <div className="space-y-3">
+            <div>
+              <div className="text-[10px] font-bold text-[#86868B] uppercase tracking-wide mb-1">Relevance</div>
+              <div className="text-sm font-medium text-[#1D1D1F] leading-snug">{tag.reasoning}</div>
+            </div>
+            
+            {tag.supportingPapers && tag.supportingPapers.length > 0 && (
+              <div>
+                <div className="text-[10px] font-bold text-[#86868B] uppercase tracking-wide mb-2 pt-2 border-t border-black/5">Evidence</div>
+                <ul className="space-y-2">
+                  {tag.supportingPapers.map((paper: any, pIdx: number) => (
+                    <li key={pIdx} className="text-[10px] text-[#424245] leading-snug pl-2 border-l-2 border-[#0071E3]/50">
+                      <span className="font-semibold text-[#1D1D1F] block mb-0.5">{paper.title}</span>
+                      {paper.year} · {paper.citations} citations
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -66,7 +135,8 @@ const ResearcherCard: React.FC<{
   data: Researcher;
   onScholarIdSubmit: (researcherId: string, scholarId: string) => void;
   onToggleFavorite: (id: string) => void;
-}> = ({ data, onScholarIdSubmit, onToggleFavorite }) => {
+  onDeleteResearcher: (id: string) => void;
+}> = ({ data, onScholarIdSubmit, onToggleFavorite, onDeleteResearcher }) => {
   const [scholarIdInput, setScholarIdInput] = useState('');
   
   const isPending = data.status === AnalysisStatus.PENDING;
@@ -112,31 +182,65 @@ const ResearcherCard: React.FC<{
       ${isLoading ? 'ring-2 ring-[#0071E3] shadow-apple-hover scale-[1.01]' : 'border border-black/5 hover:border-[#D2D2D7] shadow-apple hover:shadow-apple-hover'}
       ${isError ? 'border-red-200' : ''}
     `}>
+      {/* Favorite Star - Bottom Left */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite(data.id);
+        }}
+        className={`absolute bottom-5 left-5 p-2 rounded-full transition-all active:scale-95 z-20 ${data.isFavorite ? 'bg-yellow-400/20 text-yellow-500 shadow-sm' : 'bg-[#F5F5F7] text-[#D2D2D7] hover:text-[#86868B]'}`}
+        title={data.isFavorite ? "Remove from favorites" : "Add to favorites"}
+      >
+        <Star className={`w-5 h-5 ${data.isFavorite ? 'fill-yellow-500' : ''}`} />
+      </button>
+
       {/* Match Badge - Apple Pill Style */}
       {isHighMatch && (
-        <div className="absolute top-4 right-4 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+        <div className="absolute top-4 right-12 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
           <Sparkles className="w-3 h-3 fill-current" />
           High Match
         </div>
       )}
       {isPartialMatch && (
-        <div className="absolute top-4 right-4 bg-[#34C759]/10 text-[#34C759] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#34C759]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+        <div className="absolute top-4 right-12 bg-[#34C759]/10 text-[#34C759] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#34C759]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
           <Sparkles className="w-3 h-3 fill-current" />
           Partial Match
         </div>
       )}
       {isLowMatch && (
-        <div className="absolute top-4 right-4 bg-[#0071E3]/10 text-[#0071E3] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#0071E3]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+        <div className="absolute top-4 right-12 bg-[#0071E3]/10 text-[#0071E3] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#0071E3]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
           <Sparkles className="w-3 h-3 fill-current" />
           Low Match
         </div>
       )}
 
+      {/* Delete Button - Top Right */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDeleteResearcher(data.id);
+        }}
+        className="absolute top-4 right-4 p-1 rounded-full text-[#86868B] hover:bg-red-50 hover:text-red-500 transition-all z-20"
+        title="Delete card"
+      >
+        <X className="w-4 h-4" />
+      </button>
+
       {/* Header */}
       <div className="p-6 pb-4 flex items-start justify-between gap-4 rounded-t-[24px]">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-[#F5F5F7] text-[#86868B]">
-             <User className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-[#F5F5F7] text-[#86868B] overflow-hidden border border-black/5">
+             {data.avatarUrl ? (
+               <img 
+                 src={data.avatarUrl} 
+                 alt={data.name} 
+                 className="w-full h-full object-cover shadow-inner"
+               />
+             ) : (
+               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#F5F5F7] to-[#E8E8ED] text-[#86868B] text-lg font-bold">
+                 {data.name[0]}
+               </div>
+             )}
           </div>
           <div>
             <h4 className="font-bold text-[#1D1D1F] text-lg leading-tight line-clamp-2 tracking-tight">{data.name}</h4>
@@ -148,17 +252,6 @@ const ResearcherCard: React.FC<{
           </div>
         </div>
 
-        {/* Favorite Button - Floating */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFavorite(data.id);
-          }}
-          className={`mt-8 p-2 rounded-full transition-all active:scale-95 ${data.isFavorite ? 'bg-yellow-400/20 text-yellow-500' : 'bg-[#F5F5F7] text-[#D2D2D7] hover:text-[#86868B]'}`}
-          title={data.isFavorite ? "Remove from favorites" : "Add to favorites"}
-        >
-          <Star className={`w-5 h-5 ${data.isFavorite ? 'fill-yellow-500' : ''}`} />
-        </button>
       </div>
 
       {/* Body */}
@@ -178,15 +271,12 @@ const ResearcherCard: React.FC<{
         {/* AWAITING_SCHOLAR_ID */}
         {isAwaitingScholarId && (
           <div className="flex flex-col gap-3">
-             <div className="text-sm text-[#86868B] text-center bg-[#F5F5F7] rounded-xl p-4">
-                 Step 1: Link Scholar Profile
-             </div>
              <button
                onClick={handleOpenScholar}
-               className="w-full h-10 flex items-center justify-center gap-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-xl font-medium text-sm transition-all shadow-sm hover:shadow-md active:scale-95"
+               className="w-full h-11 flex items-center justify-center gap-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-xl font-semibold text-sm transition-all shadow-sm hover:shadow-md active:scale-95"
              >
                <Search className="w-4 h-4" />
-               Find on Google Scholar
+               Link Google Scholar Profile
              </button>
              
              <div className="relative pt-2">
@@ -269,36 +359,7 @@ const ResearcherCard: React.FC<{
             {/* Keywords / Tags */}
             <div className="flex flex-wrap gap-2 content-start">
               {data.tags?.map((tag, idx) => (
-                <div key={idx} className="group relative inline-block">
-                  <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#F5F5F7] text-[#1D1D1F] border border-transparent hover:border-[#D2D2D7] cursor-help transition-all">
-                    <Tag className="w-3 h-3 mr-1.5 text-[#86868B]" />
-                    {tag.keyword}
-                  </span>
-                  
-                  {/* Apple Popover Tooltip */}
-                  <div className="absolute bottom-full left-0 mb-3 hidden group-hover:block z-50 w-72 bg-white/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl ring-1 ring-black/5 p-5 text-left animate-in fade-in slide-in-from-bottom-2 duration-200">
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-[10px] font-bold text-[#86868B] uppercase tracking-wide mb-1">Relevance</div>
-                        <div className="text-sm font-medium text-[#1D1D1F] leading-snug">{tag.reasoning}</div>
-                      </div>
-                      
-                      {tag.supportingPapers && tag.supportingPapers.length > 0 && (
-                        <div>
-                          <div className="text-[10px] font-bold text-[#86868B] uppercase tracking-wide mb-2 pt-2 border-t border-black/5">Evidence</div>
-                          <ul className="space-y-2">
-                            {tag.supportingPapers.map((paper, pIdx) => (
-                              <li key={pIdx} className="text-[10px] text-[#424245] leading-snug pl-2 border-l-2 border-[#0071E3]/50">
-                                <span className="font-semibold text-[#1D1D1F] block mb-0.5">{paper.title}</span>
-                                {paper.year} · {paper.citations} citations
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <KeywordTag key={idx} tag={tag} />
               ))}
             </div>
 

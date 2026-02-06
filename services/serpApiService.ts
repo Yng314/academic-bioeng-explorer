@@ -17,6 +17,7 @@ export interface ScholarAuthorData {
   cited_by?: {
     table: Array<{ citations: { all: number } }>;
   };
+  thumbnail?: string;
 }
 
 /**
@@ -53,11 +54,15 @@ export async function fetchScholarPublications(authorId: string): Promise<Schola
       throw new Error(`SerpAPI error: ${data.error}`);
     }
 
+    const thumbnail = data.author?.thumbnail;
+    const isDefaultAvatar = thumbnail?.includes('avatar_scholar_128.png');
+
     return {
       name: data.author?.name || 'Unknown',
       affiliations: data.author?.affiliations || '',
       articles: data.articles || [],
-      cited_by: data.cited_by
+      cited_by: data.cited_by,
+      thumbnail: isDefaultAvatar ? undefined : thumbnail
     };
 
   } catch (error: any) {
