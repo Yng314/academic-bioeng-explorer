@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { Researcher, AnalysisStatus } from '../types';
-import { generateScholarSearchUrl } from '../services/serpApiService';
+import { generateScholarSearchUrl, searchScholarAuthorCandidates, ScholarAuthorCandidate } from '../services/serpApiService';
 import { ExternalLink, User, BrainCircuit, Tag, Sparkles, Search, Clipboard, Star, RotateCw, X } from 'lucide-react';
 
 interface ResultsGridProps {
   researchers: Researcher[];
+  university: string;
+  onScholarIdLink: (researcherId: string, scholarId: string) => void;
   onScholarIdSubmit: (researcherId: string, scholarId: string) => void;
   onToggleFavorite: (id: string) => void;
   onDeleteResearcher: (id: string) => void;
@@ -12,6 +14,8 @@ interface ResultsGridProps {
 
 export const ResultsGrid: React.FC<ResultsGridProps> = ({ 
   researchers, 
+  university,
+  onScholarIdLink,
   onScholarIdSubmit, 
   onToggleFavorite,
   onDeleteResearcher
@@ -23,20 +27,20 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({
   // 2. Processed (Has Scholar ID) -> BOTTOM
   // 3. Within groups: Perfect > High > Partial > Low > None
   const sortedResearchers = [...researchers].sort((a, b) => {
-    // Priority 1: Favorites always at very top
-    // Priority 1: Favorites always at very top
-    if (a.isFavorite && !b.isFavorite) return -1;
-    if (!a.isFavorite && b.isFavorite) return 1;
+    // Priority 1: In "All", items needing action must stay at the top:
+    // - missing author id / awaiting link
+    // - pending (linked but not analyzed)
+    const getActionPriority = (r: Researcher) => {
+      if (!r.scholarAuthorId || r.status === AnalysisStatus.AWAITING_SCHOLAR_ID) return 0;
+      if (r.status === AnalysisStatus.PENDING) return 1;
+      return 2;
+    };
 
-    // Priority 2: Status (Show "Awaiting ID" first, "Completed/Ready" last)
-    const aHasId = !!a.scholarAuthorId;
-    const bHasId = !!b.scholarAuthorId;
-    
-    if (aHasId !== bHasId) {
-      return aHasId ? 1 : -1; // If a has ID, it goes to bottom (1)
-    }
+    const actionA = getActionPriority(a);
+    const actionB = getActionPriority(b);
+    if (actionA !== actionB) return actionA - actionB;
 
-    // Priority 3: Matches (within same group)
+    // Priority 2: Matches (within same action group)
     // Perfect (100%) > High (>80%) > Partial (3+) > Low (2) > None
     const getMatchScore = (r: Researcher) => {
       if (!r.isMatch) return 0;
@@ -52,7 +56,7 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({
 
     if (scoreA !== scoreB) return scoreB - scoreA; // Descending score
     
-    return 0;
+    return a.name.localeCompare(b.name);
   });
 
   return (
@@ -61,6 +65,8 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({
         <ResearcherCard 
           key={researcher.id} 
           data={researcher} 
+          university={university}
+          onScholarIdLink={onScholarIdLink}
           onScholarIdSubmit={onScholarIdSubmit}
           onToggleFavorite={onToggleFavorite}
           onDeleteResearcher={onDeleteResearcher}
@@ -134,11 +140,19 @@ const KeywordTag: React.FC<{ tag: any }> = ({ tag }) => {
 
 const ResearcherCard: React.FC<{ 
   data: Researcher;
+  university: string;
+  onScholarIdLink: (researcherId: string, scholarId: string) => void;
   onScholarIdSubmit: (researcherId: string, scholarId: string) => void;
   onToggleFavorite: (id: string) => void;
   onDeleteResearcher: (id: string) => void;
-}> = ({ data, onScholarIdSubmit, onToggleFavorite, onDeleteResearcher }) => {
+}> = ({ data, university, onScholarIdLink, onScholarIdSubmit, onToggleFavorite, onDeleteResearcher }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
   const [scholarIdInput, setScholarIdInput] = useState('');
+  const [isScholarPopoverOpen, setIsScholarPopoverOpen] = useState(false);
+  const [scholarPopoverSide, setScholarPopoverSide] = useState<'left' | 'right'>('right');
+  const [isSearchingCandidates, setIsSearchingCandidates] = useState(false);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [authorCandidates, setAuthorCandidates] = useState<ScholarAuthorCandidate[]>([]);
   
   const isPending = data.status === AnalysisStatus.PENDING;
   const isAwaitingScholarId = data.status === AnalysisStatus.AWAITING_SCHOLAR_ID;
@@ -153,23 +167,55 @@ const ResearcherCard: React.FC<{
   const isLowMatch = data.matchType === 'LOW';
 
   const handleOpenScholar = () => {
-    const url = generateScholarSearchUrl(data.name, data.id);
+    const url = generateScholarSearchUrl(data.name, data.id, university);
     window.location.href = url;
   };
 
-  const handleSubmitScholarId = () => {
+  const handleSubmitScholarId = (closeModal = false) => {
     if (scholarIdInput.trim()) {
-      onScholarIdSubmit(data.id, scholarIdInput.trim());
+      onScholarIdLink(data.id, scholarIdInput.trim());
       setScholarIdInput(''); // Clear input after submission
+      if (closeModal) setIsScholarPopoverOpen(false);
     }
   };
 
+  const handleOpenScholarPopover = async () => {
+    const cardRect = cardRef.current?.getBoundingClientRect();
+    if (cardRect) {
+      const popoverWidth = 380;
+      const rightSpace = window.innerWidth - cardRect.right;
+      setScholarPopoverSide(rightSpace >= popoverWidth + 16 ? 'right' : 'left');
+    }
+
+    setIsScholarPopoverOpen(true);
+    setIsSearchingCandidates(true);
+    setCandidateError(null);
+    setAuthorCandidates([]);
+
+    try {
+      const candidates = await searchScholarAuthorCandidates(data.name, university);
+      setAuthorCandidates(candidates);
+    } catch (error: any) {
+      setCandidateError(error.message || 'Failed to search author candidates.');
+    } finally {
+      setIsSearchingCandidates(false);
+    }
+  };
+
+  const handleSelectAuthor = (authorId: string) => {
+    onScholarIdLink(data.id, authorId);
+    setIsScholarPopoverOpen(false);
+  };
+
   return (
-    <div className={`
+    <div
+      ref={cardRef}
+      className={`
       relative flex flex-col h-full bg-white rounded-[24px] transition-all duration-300
       ${isLoading ? 'ring-2 ring-[#0071E3] shadow-apple-hover scale-[1.01]' : 'border border-black/5 hover:border-[#D2D2D7] shadow-apple hover:shadow-apple-hover'}
       ${isError ? 'border-red-200' : ''}
-    `}>
+    `}
+    >
       {/* Favorite Star - Bottom Left */}
       <button
         onClick={(e) => {
@@ -266,39 +312,18 @@ const ResearcherCard: React.FC<{
         {isAwaitingScholarId && (
           <div className="flex flex-col gap-3">
              <button
-               onClick={handleOpenScholar}
+               onClick={handleOpenScholarPopover}
                className="w-full h-11 flex items-center justify-center gap-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-xl font-semibold text-sm transition-all shadow-sm hover:shadow-md active:scale-95"
              >
                <Search className="w-4 h-4" />
-               Link Google Scholar Profile
+               Link Google Scholar
              </button>
-             
-             <div className="relative pt-2">
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  <div className="w-full border-t border-[#D2D2D7]/50"></div>
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-2 text-[10px] text-[#86868B] uppercase tracking-wide">Or paste ID</span>
-                </div>
-             </div>
 
-             <div className="flex gap-2">
-                 <input
-                   type="text"
-                   value={scholarIdInput}
-                   onChange={(e) => setScholarIdInput(e.target.value)}
-                   onKeyDown={(e) => e.key === 'Enter' && handleSubmitScholarId()}
-                   placeholder="e.g. LSsXyncAAAAJ"
-                   className="flex-1 h-9 px-3 text-sm bg-[#F5F5F7] border-0 rounded-lg focus:ring-2 focus:ring-[#0071E3] placeholder:text-[#86868B]/70"
-                 />
-                 <button
-                   onClick={handleSubmitScholarId}
-                   disabled={!scholarIdInput.trim()}
-                   className="px-3 h-9 bg-black text-white rounded-lg text-sm font-medium hover:bg-black/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                 >
-                   Save
-                 </button>
-             </div>
+             <p className="text-[11px] text-[#86868B] leading-relaxed">
+               Searches top Scholar profile candidates using name
+               {university.trim() ? ` + ${university.trim()}` : ''}.
+               You can still use plugin or paste Author ID manually in the side panel.
+             </p>
           </div>
         )}
 
@@ -374,6 +399,123 @@ const ResearcherCard: React.FC<{
           </div>
         )}
       </div>
+
+      {isScholarPopoverOpen && (
+        <div
+          onMouseLeave={() => setIsScholarPopoverOpen(false)}
+          className={`absolute top-24 z-[120] w-[380px] max-h-[70vh] overflow-hidden bg-white/90 backdrop-blur-2xl rounded-2xl border border-white/20 shadow-2xl animate-in fade-in zoom-in-95 duration-200 ${
+            scholarPopoverSide === 'right' ? 'left-full ml-3' : 'right-full mr-3'
+          }`}
+        >
+          <div className="px-4 py-3 flex items-center justify-between border-b border-black/5">
+            <div>
+              <h3 className="font-semibold text-[#1D1D1F] text-sm">Scholar Candidates</h3>
+              <p className="text-[11px] text-[#86868B] mt-0.5">
+                {data.name}{university.trim() ? ` + ${university.trim()}` : ''}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsScholarPopoverOpen(false)}
+              className="p-1.5 rounded-full hover:bg-black/5 text-slate-500 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="p-4 overflow-y-auto max-h-[42vh] space-y-3">
+            {isSearchingCandidates && (
+              <div className="text-sm text-[#86868B]">Searching Scholar candidates...</div>
+            )}
+
+            {!isSearchingCandidates && candidateError && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl p-3">
+                {candidateError}
+              </div>
+            )}
+
+            {!isSearchingCandidates && !candidateError && authorCandidates.length === 0 && (
+              <div className="text-sm text-[#86868B] bg-[#F5F5F7] rounded-xl p-3 border border-black/5">
+                No candidate profiles found from API.
+              </div>
+            )}
+
+            {!isSearchingCandidates && authorCandidates.length > 0 && (
+              <div className="space-y-3">
+                {authorCandidates.map((author) => (
+                  <div key={author.authorId} className="rounded-xl border border-black/5 bg-white/60 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <h4 className="font-semibold text-[#1D1D1F] text-sm truncate">{author.name}</h4>
+                        {author.affiliations && (
+                          <p className="text-xs text-[#424245] line-clamp-2">{author.affiliations}</p>
+                        )}
+                        {author.email && (
+                          <p className="text-xs text-[#86868B]">{author.email}</p>
+                        )}
+                        <p className="text-[11px] text-[#86868B]">Author ID: {author.authorId}</p>
+                      </div>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        {author.link && (
+                          <a
+                            href={author.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-lg border border-black/10 bg-white/70 text-[#0071E3] hover:bg-white transition-colors"
+                            title="Open Scholar profile"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        <button
+                          onClick={() => handleSelectAuthor(author.authorId)}
+                          className="px-2.5 py-1.5 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-lg text-[11px] font-semibold transition-colors"
+                        >
+                          Link
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="px-4 py-3 border-t border-black/5 space-y-2.5 bg-white/40">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={scholarIdInput}
+                onChange={(e) => setScholarIdInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmitScholarId(true)}
+                placeholder="Paste Author ID"
+                className="flex-1 h-9 px-3 text-sm bg-[#F5F5F7] border border-black/5 rounded-lg focus:ring-2 focus:ring-[#0071E3] placeholder:text-[#86868B]/70"
+              />
+              <button
+                onClick={() => handleSubmitScholarId(true)}
+                disabled={!scholarIdInput.trim()}
+                className="px-3 h-9 bg-black text-white rounded-lg text-sm font-medium hover:bg-black/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                Link ID
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <button
+                onClick={handleOpenScholar}
+                className="px-3 py-1.5 bg-white border border-black/5 rounded-lg text-xs font-medium hover:bg-[#F5F5F7] text-[#1D1D1F] transition-colors"
+              >
+                Open Plugin Search
+              </button>
+              <button
+                onClick={handleOpenScholarPopover}
+                className="px-3 py-1.5 bg-black/5 border border-black/5 rounded-lg text-xs font-medium hover:bg-black/10 text-slate-700 transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

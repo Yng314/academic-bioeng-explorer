@@ -14,6 +14,7 @@ export default function App() {
   const [userInterests, setUserInterests] = useState('');
   const [letterTemplate, setLetterTemplate] = useState('');
   const [emailTitle, setEmailTitle] = useState('');
+  const [university, setUniversity] = useState('');
   const [rawText, setRawText] = useState('');
   
   const [researchers, setResearchers] = useState<Researcher[]>([]);
@@ -21,7 +22,7 @@ export default function App() {
   const [currentAnalyzingName, setCurrentAnalyzingName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
+  const [viewMode, setViewMode] = useState<'all' | 'favorites' | 'analyzed'>('all');
   const [activeTab, setActiveTab] = useState<'profile' | 'find' | 'customize'>('find'); // Default to 'find' tab
   const [isExtractModalOpen, setIsExtractModalOpen] = useState(false);
 
@@ -43,6 +44,7 @@ export default function App() {
     const savedUserInterests = localStorage.getItem('userInterests');
     const savedLetterTemplate = localStorage.getItem('letterTemplate');
     const savedEmailTitle = localStorage.getItem('emailTitle');
+    const savedUniversity = localStorage.getItem('university');
     const savedRawText = localStorage.getItem('rawText');
     
     if (savedResearchers) {
@@ -58,6 +60,7 @@ export default function App() {
     if (savedUserInterests) setUserInterests(savedUserInterests);
     if (savedLetterTemplate) setLetterTemplate(savedLetterTemplate);
     if (savedEmailTitle) setEmailTitle(savedEmailTitle);
+    if (savedUniversity) setUniversity(savedUniversity);
     if (savedRawText) setRawText(savedRawText);
     
     // AFTER loading from LocalStorage, check URL parameters
@@ -115,6 +118,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('emailTitle', emailTitle);
   }, [emailTitle]);
+
+  useEffect(() => {
+    localStorage.setItem('university', university);
+  }, [university]);
 
 
   useEffect(() => {
@@ -222,6 +229,25 @@ export default function App() {
     }
   }, [researchers, userInterests]);
 
+  const handleScholarIdLink = useCallback((researcherId: string, scholarId: string) => {
+    setResearchers(prev => prev.map(r =>
+      r.id === researcherId ? {
+        ...r,
+        scholarAuthorId: scholarId,
+        status: AnalysisStatus.PENDING,
+        interests: '',
+        tags: [],
+        profileUrl: undefined,
+        avatarUrl: undefined,
+        isMatch: undefined,
+        matchType: undefined,
+        matchReason: undefined,
+        matchedInterests: []
+      } : r
+    ));
+    setError(null);
+  }, []);
+
   const handleToggleFavorite = useCallback((id: string) => {
     setResearchers(prev => prev.map(r => 
       r.id === id ? { ...r, isFavorite: !r.isFavorite } : r
@@ -308,9 +334,11 @@ export default function App() {
     console.log('[Web App] ✓ Cleared non-favorites');
   }, []);
 
-  const displayedResearchers = viewMode === 'all' 
-    ? researchers 
-    : researchers.filter(r => r.isFavorite);
+  const displayedResearchers = viewMode === 'all'
+    ? researchers
+    : viewMode === 'favorites'
+      ? researchers.filter(r => r.isFavorite)
+      : researchers.filter(r => r.status === AnalysisStatus.COMPLETED || r.status === AnalysisStatus.ERROR);
     
 
 
@@ -375,6 +403,19 @@ export default function App() {
             </div>
             
             <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">
+                  University (used for Scholar candidate narrowing)
+                </label>
+                <input
+                  type="text"
+                  value={university}
+                  onChange={(e) => setUniversity(e.target.value)}
+                  placeholder="e.g. Imperial College London"
+                  className="w-full p-3 bg-white/50 border border-black/5 rounded-xl focus:ring-2 focus:ring-imperial-blue focus:border-transparent transition-all text-slate-800"
+                />
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">
                   Paste your list of professors to extract professor names
@@ -477,9 +518,19 @@ export default function App() {
                       <h3 className="text-slate-800 font-medium mb-1">No favorites yet</h3>
                       <p className="text-slate-500 text-sm">Star researchers to save them here.</p>
                     </div>
+                  ) : viewMode === 'analyzed' && displayedResearchers.length === 0 ? (
+                    <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+                      <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <LayoutGrid className="w-6 h-6 text-blue-500" />
+                      </div>
+                      <h3 className="text-slate-800 font-medium mb-1">No analyzed professors yet</h3>
+                      <p className="text-slate-500 text-sm">Run analysis to populate this list.</p>
+                    </div>
                   ) : (
                     <ResultsGrid 
                       researchers={displayedResearchers} 
+                      university={university}
+                      onScholarIdLink={handleScholarIdLink}
                       onScholarIdSubmit={handleScholarIdSubmit}
                       onToggleFavorite={handleToggleFavorite}
                       onDeleteResearcher={handleDeleteResearcher}
@@ -549,6 +600,17 @@ export default function App() {
                             >
                               <Star className={`w-3 h-3 ${viewMode === 'favorites' ? 'fill-yellow-400 text-yellow-400' : ''}`} />
                               Favorites
+                            </button>
+                            <button 
+                              onClick={() => setViewMode('analyzed')}
+                              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-semibold transition-all ${
+                                viewMode === 'analyzed' 
+                                  ? 'bg-white text-[#1D1D1F] shadow-sm' 
+                                  : 'text-[#86868B] hover:text-[#1D1D1F]'
+                              }`}
+                            >
+                              <LayoutGrid className="w-3 h-3" />
+                              Analyzed
                             </button>
                           </div>
                           
