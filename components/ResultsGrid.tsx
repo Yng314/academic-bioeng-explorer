@@ -21,7 +21,7 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({
   // Sort logic:
   // 1. Processing needed (No Scholar ID) -> TOP
   // 2. Processed (Has Scholar ID) -> BOTTOM
-  // 3. Within groups: High Match > Partial Match > No Match
+  // 3. Within groups: Perfect > High > Partial > Low > None
   const sortedResearchers = [...researchers].sort((a, b) => {
     // Priority 1: Favorites always at very top
     // Priority 1: Favorites always at very top
@@ -37,9 +37,10 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({
     }
 
     // Priority 3: Matches (within same group)
-    // High (>80%) > Partial (3+) > Low (2) > None
+    // Perfect (100%) > High (>80%) > Partial (3+) > Low (2) > None
     const getMatchScore = (r: Researcher) => {
       if (!r.isMatch) return 0;
+      if (r.matchType === 'PERFECT') return 4;
       if (r.matchType === 'HIGH') return 3;
       if (r.matchType === 'PARTIAL') return 2;
       if (r.matchType === 'LOW') return 1;
@@ -146,6 +147,7 @@ const ResearcherCard: React.FC<{
   const isCompleted = data.status === AnalysisStatus.COMPLETED;
   const isMatch = isCompleted && data.isMatch;
 
+  const isPerfectMatch = data.matchType === 'PERFECT';
   const isHighMatch = data.matchType === 'HIGH';
   const isPartialMatch = data.matchType === 'PARTIAL';
   const isLowMatch = data.matchType === 'LOW';
@@ -181,6 +183,12 @@ const ResearcherCard: React.FC<{
       </button>
 
       {/* Match Badge - Apple Pill Style */}
+      {isPerfectMatch && (
+        <div className="absolute top-4 right-12 bg-[#FFD60A]/15 text-[#B8860B] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#FFD60A]/40 flex items-center gap-1 z-10 backdrop-blur-sm">
+          <Sparkles className="w-3 h-3 fill-current" />
+          Perfect Match
+        </div>
+      )}
       {isHighMatch && (
         <div className="absolute top-4 right-12 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
           <Sparkles className="w-3 h-3 fill-current" />

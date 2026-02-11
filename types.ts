@@ -17,10 +17,11 @@ export interface KeywordEvidence {
 }
 
 export enum MatchType {
+  PERFECT = 'PERFECT', // 100% matches
   NONE = 'NONE',
   LOW = 'LOW',         // Exactly 2 matches
   PARTIAL = 'PARTIAL', // 3+ matches (but < 80%)
-  HIGH = 'HIGH'        // >= 80% matches
+  HIGH = 'HIGH'        // >= 80% matches, but < 100%
 }
 
 export enum EmailStatus {
@@ -40,6 +41,7 @@ export interface Researcher {
   isMatch?: boolean;
   matchType?: MatchType;
   matchReason?: string;
+  matchedInterests?: string[];
   isFavorite?: boolean;
   customizedLetter?: string;
   emailStatus?: EmailStatus;
@@ -51,4 +53,5 @@ export interface AnalysisResult {
   isMatch: boolean;
   matchType?: MatchType;
   matchReason?: string;
+  matchedInterests?: string[];
 }

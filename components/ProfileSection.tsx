@@ -33,7 +33,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
           
           <div className="space-y-4">
             <p className="text-sm text-[#86868B] leading-relaxed">
-              Define your research focus here. The AI will use these keywords to evaluate how well each professor's work aligns with your goals (High, Partial, or Low match).
+              Define your research focus here. The AI will use these keywords to evaluate how well each professor's work aligns with your goals (Perfect, High, Partial, or Low match).
             </p>
             <div className="space-y-2">
               <input 
@@ -98,5 +98,4 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
     </div>
   );
 };
-
 

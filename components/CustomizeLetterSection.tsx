@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Researcher, MatchType, EmailStatus } from '../types';
 import { generateCustomizedLetter } from '../services/geminiService';
 import { Sparkles, Wand2, Eye, FileText, Check, X, Copy, Mail } from 'lucide-react';
@@ -11,6 +11,39 @@ interface CustomizeLetterSectionProps {
   onUpdateResearcher: (id: string, updates: Partial<Researcher>) => void;
 }
 
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const stripFormattingMarkers = (value: string): string =>
+  value
+    .replace(/\[\[B\]\]([\s\S]*?)\[\[\/B\]\]/g, '$1')
+    .replace(/\*\*\*\*([\s\S]*?)\*\*\*\*/g, '$1')
+    .replace(/\*\*([\s\S]*?)\*\*/g, '$1');
+
+const buildRichTextHtml = (value: string): string => {
+  const normalized = value.replace(/\r\n/g, '\n');
+  const markerPattern = /\[\[B\]\]([\s\S]*?)\[\[\/B\]\]|\*\*\*\*([\s\S]*?)\*\*\*\*|\*\*([\s\S]*?)\*\*/g;
+  let html = '';
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = markerPattern.exec(normalized)) !== null) {
+    html += escapeHtml(normalized.slice(lastIndex, match.index));
+    const boldContent = match[1] ?? match[2] ?? match[3] ?? '';
+    html += `<strong style="font-weight: 700;">${escapeHtml(boldContent)}</strong>`;
+    lastIndex = markerPattern.lastIndex;
+  }
+
+  html += escapeHtml(normalized.slice(lastIndex));
+  const bodyHtml = html.replace(/\n/g, '<br>');
+  return `<div style="font-family: Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #000000;">${bodyHtml}</div>`;
+};
+
 export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
   favoriteResearchers,
   letterTemplate,
@@ -18,25 +51,66 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
   userInterests,
   onUpdateResearcher
 }) => {
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [pendingGenerationIds, setPendingGenerationIds] = useState<Set<string>>(new Set());
+  const [copyButtonState, setCopyButtonState] = useState<'idle' | 'success' | 'failed'>('idle');
   const [viewLetterId, setViewLetterId] = useState<string | null>(null);
+  const pendingGenerationIdsRef = useRef<Set<string>>(new Set());
+  const generationQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  const handleCustomize = async (researcher: Researcher) => {
+  const handleCopyRichText = async (letter: string): Promise<void> => {
+    const plainText = stripFormattingMarkers(letter);
+    const htmlText = buildRichTextHtml(letter);
+
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        const clipboardItem = new ClipboardItem({
+          'text/plain': new Blob([plainText], { type: 'text/plain' }),
+          'text/html': new Blob([htmlText], { type: 'text/html' })
+        });
+        await navigator.clipboard.write([clipboardItem]);
+        setCopyButtonState('success');
+        return;
+      }
+
+      await navigator.clipboard.writeText(plainText);
+      setCopyButtonState('success');
+    } catch (error) {
+      console.error("Rich text copy failed:", error);
+      try {
+        await navigator.clipboard.writeText(plainText);
+        setCopyButtonState('success');
+      } catch (fallbackError) {
+        console.error("Plain text copy fallback failed:", fallbackError);
+        setCopyButtonState('failed');
+      }
+    }
+  };
+
+  const handleCustomize = (researcher: Researcher) => {
     if (!letterTemplate.trim()) {
       alert("Please define your Letter Template in 'My Profile' first.");
       return;
     }
 
-    setGeneratingId(researcher.id);
-    try {
-      const customLetter = await generateCustomizedLetter(letterTemplate, researcher, userInterests);
-      onUpdateResearcher(researcher.id, { customizedLetter: customLetter });
-    } catch (error) {
-      console.error("Failed to customize letter:", error);
-      alert("Failed to generate letter. Please try again.");
-    } finally {
-      setGeneratingId(null);
+    if (pendingGenerationIdsRef.current.has(researcher.id)) {
+      return;
     }
+
+    pendingGenerationIdsRef.current.add(researcher.id);
+    setPendingGenerationIds(new Set(pendingGenerationIdsRef.current));
+
+    generationQueueRef.current = generationQueueRef.current.then(async () => {
+      try {
+        const customLetter = await generateCustomizedLetter(letterTemplate, researcher, userInterests);
+        onUpdateResearcher(researcher.id, { customizedLetter: customLetter });
+      } catch (error) {
+        console.error("Failed to customize letter:", error);
+        alert(`Failed to generate letter for ${researcher.name}. Please try again.`);
+      } finally {
+        pendingGenerationIdsRef.current.delete(researcher.id);
+        setPendingGenerationIds(new Set(pendingGenerationIdsRef.current));
+      }
+    });
   };
 
   const selectedResearcherForView = favoriteResearchers.find(r => r.id === viewLetterId);
@@ -58,10 +132,17 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {favoriteResearchers.map(researcher => {
             const hasLetter = !!researcher.customizedLetter;
+            const isPendingGeneration = pendingGenerationIds.has(researcher.id);
             
             return (
               <div key={researcher.id} className="relative flex flex-col h-full bg-white rounded-[24px] shadow-apple hover:shadow-apple-hover border border-black/5 transition-all duration-300">
                 {/* Match Badge - Consistent placement */}
+                {researcher.matchType === MatchType.PERFECT && (
+                  <div className="absolute top-4 right-12 bg-[#FFD60A]/15 text-[#B8860B] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#FFD60A]/40 flex items-center gap-1 z-10 backdrop-blur-sm">
+                    <Sparkles className="w-3 h-3 fill-current" />
+                    Perfect Match
+                  </div>
+                )}
                 {researcher.matchType === MatchType.HIGH && (
                   <div className="absolute top-4 right-12 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
                     <Sparkles className="w-3 h-3 fill-current" />
@@ -130,14 +211,14 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
                   <div className="space-y-3 mt-auto">
                     <button
                       onClick={() => handleCustomize(researcher)}
-                      disabled={generatingId === researcher.id}
+                      disabled={isPendingGeneration}
                       className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95 ${
                         hasLetter 
                           ? 'bg-[#E8E8ED] text-[#1D1D1F] hover:bg-[#D2D2D7]' 
                           : 'bg-[#0071E3] text-white hover:bg-[#0077ED] shadow-apple hover:shadow-apple-hover'
                       }`}
                     >
-                      {generatingId === researcher.id ? (
+                      {isPendingGeneration ? (
                         <>
                           <Wand2 className="w-4 h-4 animate-spin" />
                           Generating...
@@ -193,7 +274,7 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
                  </div>
               </div>
  
-              <div className="px-6 py-4 flex justify-end gap-3">
+              <div className="px-6 py-4 flex justify-end gap-3 relative">
                  <button
                    onClick={() => {
                      const subject = emailTitle || `Inquiry regarding your research - academic-outreach-explorer`;
@@ -208,12 +289,23 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
                  </button>
                  <button
                    onClick={() => {
-                     navigator.clipboard.writeText(selectedResearcherForView.customizedLetter || '');
+                     handleCopyRichText(selectedResearcherForView.customizedLetter || '');
                    }}
-                   className="flex items-center gap-2 px-4 py-2 bg-white/50 border border-black/5 rounded-lg text-sm font-medium hover:bg-white text-slate-700 transition-colors"
+                   onMouseLeave={() => setCopyButtonState('idle')}
+                   className={`flex items-center gap-2 px-4 py-2 border border-black/5 rounded-lg text-sm font-medium transition-colors ${
+                     copyButtonState === 'success'
+                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                       : copyButtonState === 'failed'
+                         ? 'bg-red-50 text-red-700 border-red-200'
+                         : 'bg-white/50 hover:bg-white text-slate-700'
+                   }`}
                  >
                    <Copy className="w-4 h-4" />
-                   Copy to Clipboard
+                   {copyButtonState === 'success'
+                     ? 'Copy Succeeded'
+                     : copyButtonState === 'failed'
+                       ? 'Copy Failed'
+                       : 'Copy Rich Text'}
                  </button>
                  <button
                    onClick={() => setViewLetterId(null)}

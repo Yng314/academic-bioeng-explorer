@@ -206,7 +206,8 @@ export default function App() {
           avatarUrl: scholarData.thumbnail,
           isMatch: result.isMatch,
           matchType: result.matchType,
-          matchReason: result.matchReason
+          matchReason: result.matchReason,
+          matchedInterests: result.matchedInterests
         } : r
       ));
 

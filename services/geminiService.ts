@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { AnalysisResult, Researcher } from '../types';
+import { AnalysisResult, MatchType, Researcher } from '../types';
 import { ScholarAuthorData } from './serpApiService';
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -99,7 +99,8 @@ ${hasUserInterests ? `
    - Be flexible with wording (e.g. "MRI" matches "Medical Imaging").
    - **CRITICAL:** Return a list of EXACTLY which user interests were matched.
    - **Step 3: Assign Match Type:**
-     - **HIGH MATCH:** Matches >= 80% of user interests (e.g. 4 out of 5, or All).
+     - **PERFECT MATCH:** Matches 100% of user interests.
+     - **HIGH MATCH:** Matches >= 80% but below 100%.
      - **PARTIAL MATCH:** Matches 3 or more interests (but < 80%).
      - **LOW MATCH:** Matches EXACTLY TWO (2) interests.
      - **NONE:** Matches 0 or 1 interest.
@@ -135,41 +136,48 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
     const jsonStr = response.text || "{}";
     const parsed = JSON.parse(jsonStr);
 
+    const parsedUserInterests = userInterests
+      .split(/[,;]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    const userInterestMap = new Map(parsedUserInterests.map(i => [i.toLowerCase(), i]));
+    const rawMatchedInterests = Array.isArray(parsed.matched_user_interests) ? parsed.matched_user_interests : [];
+    const matchedInterests = Array.from(
+      new Set(
+        rawMatchedInterests
+          .filter((item: unknown): item is string => typeof item === 'string')
+          .map(item => item.trim().toLowerCase())
+          .filter(item => item.length > 0 && userInterestMap.has(item))
+      )
+    ).map(item => userInterestMap.get(item) || item);
+
     // --- Deterministic Match Logic ---
-    let matchType = 'NONE';
+    let matchType: MatchType = MatchType.NONE;
     let isMatch = false;
 
     if (hasUserInterests) {
-      // 1. Parse user input into distinct concepts (comma separated)
-      const userConcepts = userInterests.split(/[,;]+/).map(s => s.trim().toLowerCase()).filter(s => s.length > 0);
-      const totalConcepts = userConcepts.length;
-
-      // 2. Count matches returned by Gemini
-      const matchedList = Array.isArray(parsed.matched_user_interests) ? parsed.matched_user_interests : [];
-      const matchCount = matchedList.length;
+      const totalConcepts = parsedUserInterests.length;
+      const matchCount = matchedInterests.length;
 
       // 3. Apply Threshold Rules
       // High Match: >= 80% of total
       const highThreshold = Math.ceil(totalConcepts * 0.8);
       
-      if (matchCount >= 2) {
-         if (matchCount >= highThreshold && totalConcepts >= 2) {
-           matchType = 'HIGH';
-         } else if (matchCount >= 3) {
-           matchType = 'PARTIAL'; // 3+ but not high enough
-         } else {
-           matchType = 'LOW'; // Exact 2 matches
-         }
-         isMatch = true;
+      if (totalConcepts > 0 && matchCount === totalConcepts) {
+        matchType = MatchType.PERFECT;
+        isMatch = true;
+      } else if (matchCount >= 2) {
+        if (matchCount >= highThreshold && totalConcepts >= 2) {
+          matchType = MatchType.HIGH;
+        } else if (matchCount >= 3) {
+          matchType = MatchType.PARTIAL; // 3+ but not high enough
+        } else {
+          matchType = MatchType.LOW; // Exact 2 matches
+        }
+        isMatch = true;
       } else {
-        matchType = 'NONE'; // 0 or 1 match
+        matchType = MatchType.NONE; // 0 or 1 match
         isMatch = false;
-      }
-
-      // Special case: Single concept entered by user
-      if (totalConcepts === 1 && matchCount === 1) {
-         matchType = 'HIGH'; // If only 1 concept, 100% match
-         isMatch = true;
       }
     }
 
@@ -177,8 +185,9 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
       summary: parsed.summary || "No summary available.",
       keywords: parsed.keywords || [],
       isMatch: isMatch,
-      matchType: matchType as any,
-      matchReason: parsed.matchReason || undefined
+      matchType: matchType,
+      matchReason: parsed.matchReason || undefined,
+      matchedInterests
     };
 
   } catch (error) {
@@ -186,7 +195,8 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
     return {
       summary: "Failed to analyze publications.",
       keywords: [],
-      isMatch: false
+      isMatch: false,
+      matchedInterests: []
     };
   }
 };
@@ -202,10 +212,20 @@ export const generateCustomizedLetter = async (
   if (!apiKey) throw new Error("API Key is missing.");
 
   // Extract relevant research themes from the researcher's analysis
-  const researcherThemes = researcher.tags?.map(t => t.keyword).join(', ') || 'their research field';
-  
-  // Format supporting papers to give context
-  const keyPapers = researcher.tags?.flatMap(t => t.supportingPapers.map(p => `"${p.title}"`)).slice(0, 3).join('; ') || '';
+  const themeList = (researcher.tags || []).map(t => t.keyword).filter(Boolean);
+  const researcherThemes = themeList.join(', ') || 'their research field';
+  const matchedInterestList = (researcher.matchedInterests || [])
+    .map(i => i.trim())
+    .filter(i => i.length > 0);
+  const intersectionKeywords = matchedInterestList.length > 0
+    ? matchedInterestList.join(', ')
+    : themeList.slice(0, 3).join(', ');
+
+  const intersectionPlaceholderPattern = /\[key words of the intersection of professor['’]s research interests and mine\]/gi;
+  const templateWithIntersection = template.replace(
+    intersectionPlaceholderPattern,
+    intersectionKeywords || 'relevant shared research topics'
+  );
 
   try {
     const response = await ai.models.generateContent({
@@ -217,21 +237,26 @@ export const generateCustomizedLetter = async (
 **Data Provided:**
 1. **Student's Template:** 
 """
-${template}
+${templateWithIntersection}
 """
 
 2. **Student's Interests:** "${userInterests}"
 
 3. **Professor's Research Profile:**
    - **Key Themes:** ${researcherThemes}
-   - **Key Papers:** ${keyPapers}
    - **Summary:** ${researcher.interests || 'N/A'}
+4. **Precomputed Interest Intersection (User ∩ Professor):** ${intersectionKeywords || 'None'}
 
 **Instructions:**
 - Keep the structure and tone of the original template.
 - Replace placeholders like "[Name]" with "Professor ${researcher.name.split(' ').pop()}".
-- **Crucial:** Insert a specific, genuine sentence connecting the student's interests (${userInterests}) to the professor's specific work (themes: ${researcherThemes}).
-- Mention 1-2 of result specific papers if it fits naturally to show the student did their homework.
+- Preserve any emphasis markers from the template ("[[B]]...[[/B]]", "****...****", or "**...**") instead of removing them.
+- If the template includes the intersection placeholder, use ONLY the precomputed intersection keywords and do not invent extra keywords.
+- Keep the sentence "I have been closely following your group's recent advancements in ..." tightly anchored to the intersection keywords only.
+- Do not introduce new research topics beyond the precomputed intersection keywords and the provided key themes.
+- Do NOT mention any specific paper title, publication title, or citation details.
+- Instead, write one short, high-level sentence describing how the student's interests align with the professor's research direction.
+- Keep this alignment sentence concrete but concise (no long expansion, no invented details).
 - Keep it concise and professional.
 - Return ONLY the full body of the email text. Do not return Markdown formatting or comments.`,
     });
