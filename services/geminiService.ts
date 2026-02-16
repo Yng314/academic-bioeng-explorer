@@ -263,3 +263,66 @@ ${templateWithIntersection}
     throw new Error("Failed to generate customized letter.");
   }
 };
+
+/**
+ * Refines an existing customized letter using an in-context annotation.
+ * Returns the full updated letter body.
+ */
+export const reviseCustomizedLetterWithAnnotation = async (
+  currentLetter: string,
+  selectedText: string,
+  annotation: string,
+  researcher: Researcher,
+  userInterests: string
+): Promise<string> => {
+  if (!apiKey) throw new Error("API Key is missing.");
+
+  const themeList = (researcher.tags || []).map(t => t.keyword).filter(Boolean);
+  const researcherThemes = themeList.join(', ') || 'their research field';
+  const matchedInterestList = (researcher.matchedInterests || [])
+    .map(i => i.trim())
+    .filter(i => i.length > 0);
+  const intersectionKeywords = matchedInterestList.length > 0
+    ? matchedInterestList.join(', ')
+    : themeList.slice(0, 3).join(', ');
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: `You are revising a student outreach email to a professor based on a targeted annotation.
+
+Professor: ${researcher.name}
+Student interests: ${userInterests || 'N/A'}
+Professor themes: ${researcherThemes}
+Intersection keywords: ${intersectionKeywords || 'N/A'}
+
+CURRENT LETTER (full text):
+"""
+${currentLetter}
+"""
+
+SELECTED TEXT TO REVISE:
+"""
+${selectedText}
+"""
+
+ANNOTATION / REQUEST:
+"""
+${annotation}
+"""
+
+Instructions:
+- Rewrite the letter to satisfy the annotation.
+- Focus changes around the selected text; keep unrelated parts as stable as possible.
+- Keep the structure, tone, and intent of the current letter.
+- Preserve formatting markers like [[B]]...[[/B]], ****...****, and **...** when present.
+- Do not invent specific paper titles, publication claims, or factual details not provided.
+- Return ONLY the full revised letter body text with no markdown and no commentary.`,
+    });
+
+    return response.text || currentLetter;
+  } catch (error) {
+    console.error("Letter revision error:", error);
+    throw new Error("Failed to revise customized letter.");
+  }
+};
