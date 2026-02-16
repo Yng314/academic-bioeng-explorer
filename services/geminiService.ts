@@ -190,14 +190,9 @@ IMPORTANT: ${hasUserInterests ? 'Only include interests in "matched_user_interes
       matchedInterests
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Scholar analysis error for ${name}:`, error);
-    return {
-      summary: "Failed to analyze publications.",
-      keywords: [],
-      isMatch: false,
-      matchedInterests: []
-    };
+    throw new Error(`Gemini analysis failed: ${error?.message || 'Unknown error'}`);
   }
 };
 

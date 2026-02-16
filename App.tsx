@@ -10,6 +10,48 @@ import { CustomizeLetterSection } from './components/CustomizeLetterSection';
 import { ResultsGrid } from './components/ResultsGrid';
 import { FlaskConical, AlertCircle, Loader2, Play, Search, Star, LayoutGrid, RotateCw, Sparkles, X } from 'lucide-react';
 
+const AUTO_RETRY_MAX_RETRIES = 2;
+const AUTO_RETRY_BASE_DELAY_MS = 1000;
+
+const runWithConcurrency = async <T,>(
+  items: T[],
+  maxConcurrency: number,
+  worker: (item: T) => Promise<void>
+): Promise<void> => {
+  if (items.length === 0) return;
+
+  const concurrency = Math.max(1, Math.min(maxConcurrency, items.length));
+  let nextIndex = 0;
+
+  const runners = Array.from({ length: concurrency }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex++;
+      await worker(items[currentIndex]);
+    }
+  });
+
+  await Promise.all(runners);
+};
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const isRetriableError = (error: unknown): boolean => {
+  const err = error as { status?: number; message?: string };
+  const status = typeof err?.status === 'number' ? err.status : null;
+  if (status === 429 || (status !== null && status >= 500)) return true;
+
+  const message = (err?.message || '').toLowerCase();
+  return (
+    /\b(429|500|502|503|504)\b/.test(message) ||
+    message.includes('rate limit') ||
+    message.includes('too many requests') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('service unavailable') ||
+    message.includes('timeout') ||
+    message.includes('network')
+  );
+};
+
 export default function App() {
   const [userInterests, setUserInterests] = useState('');
   const [letterTemplate, setLetterTemplate] = useState('');
@@ -183,40 +225,55 @@ export default function App() {
     setError(null);
 
     try {
-      // Step 1: Fetch publications from SerpAPI
-      const scholarData = await fetchScholarPublications(scholarId);
+      const maxAttempts = AUTO_RETRY_MAX_RETRIES + 1;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          // Step 1: Fetch publications from SerpAPI
+          const scholarData = await fetchScholarPublications(scholarId);
 
-      // Validation: If no articles found, SerpAPI might have returned an empty profile or invalid ID
-      if (!scholarData.articles || scholarData.articles.length === 0) {
-        throw new Error("No publications found for this Scholar ID. Please verify the ID correctly matches the professor.");
+          // Validation: If no articles found, SerpAPI might have returned an empty profile or invalid ID
+          if (!scholarData.articles || scholarData.articles.length === 0) {
+            throw new Error("No publications found for this Scholar ID. Please verify the ID correctly matches the professor.");
+          }
+
+          // Step 2: Analyze publications with Gemini
+          const result = await analyzeScholarPublications(
+            researcher.name,
+            scholarData,
+            userInterests
+          );
+
+          // Step 3: Update researcher with results
+          setResearchers(prev => prev.map(r => 
+            r.id === researcherId ? {
+              ...r,
+              status: AnalysisStatus.COMPLETED,
+              interests: result.summary,
+              tags: result.keywords,
+              profileUrl: `https://scholar.google.com/citations?user=${scholarId}`,
+              avatarUrl: scholarData.thumbnail,
+              isMatch: result.isMatch,
+              matchType: result.matchType,
+              matchReason: result.matchReason,
+              matchedInterests: result.matchedInterests
+            } : r
+          ));
+
+          return;
+        } catch (attemptError) {
+          const isLastAttempt = attempt === maxAttempts;
+          if (isLastAttempt || !isRetriableError(attemptError)) {
+            throw attemptError;
+          }
+
+          const backoffMs = AUTO_RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          console.warn(
+            `[Web App] Retrying ${researcher.name} (${attempt + 1}/${maxAttempts}) after ${backoffMs}ms due to transient error:`,
+            attemptError
+          );
+          await sleep(backoffMs);
+        }
       }
-
-      // Step 2: Analyze publications with Gemini
-      const result = await analyzeScholarPublications(
-        researcher.name,
-        scholarData,
-        userInterests
-      );
-
-      if (result.summary === "Failed to analyze publications.") {
-        throw new Error("Failed to analyze publications. Please retry.");
-      }
-
-      // Step 3: Update researcher with results
-      setResearchers(prev => prev.map(r => 
-        r.id === researcherId ? {
-          ...r,
-          status: AnalysisStatus.COMPLETED,
-          interests: result.summary,
-          tags: result.keywords,
-          profileUrl: `https://scholar.google.com/citations?user=${scholarId}`,
-          avatarUrl: scholarData.thumbnail,
-          isMatch: result.isMatch,
-          matchType: result.matchType,
-          matchReason: result.matchReason,
-          matchedInterests: result.matchedInterests
-        } : r
-      ));
 
     } catch (err: any) {
       console.error('Scholar analysis error:', err);
@@ -272,13 +329,14 @@ export default function App() {
     }
 
     console.log(`[Web App] Starting batch analysis for ${toAnalyze.length} researchers`);
-    
-    // Analyze them one by one (sequential to avoid rate limits)
-    for (const researcher of toAnalyze) {
-      await handleScholarIdSubmit(researcher.id, researcher.scholarAuthorId!);
-      // Small delay between requests
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+
+    await runWithConcurrency(
+      toAnalyze,
+      toAnalyze.length,
+      async (researcher) => {
+        await handleScholarIdSubmit(researcher.id, researcher.scholarAuthorId!);
+      }
+    );
 
     console.log('[Web App] Batch analysis complete');
     console.log('[Web App] Batch analysis complete');
@@ -293,18 +351,15 @@ export default function App() {
     // If they have scholarAuthorId, we can just call handleScholarIdSubmit again.
     
     console.log(`[Web App] Retrying ${failedResearchers.length} failed analyses`);
-    
-    for (const r of failedResearchers) {
-      if (r.scholarAuthorId) {
-        // Reset to loading state first to show UI feedback
-        setResearchers(prev => prev.map(res => 
-           res.id === r.id ? { ...res, status: AnalysisStatus.LOADING } : res
-        ));
-        
-        await handleScholarIdSubmit(r.id, r.scholarAuthorId);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const retryable = failedResearchers.filter(r => Boolean(r.scholarAuthorId));
+    await runWithConcurrency(
+      retryable,
+      retryable.length,
+      async (researcher) => {
+        await handleScholarIdSubmit(researcher.id, researcher.scholarAuthorId!);
       }
-    }
+    );
   }, [researchers, handleScholarIdSubmit]);
 
   // Clear all data
