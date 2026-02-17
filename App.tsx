@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { extractNamesFromText, analyzeScholarPublications } from './services/geminiService';
+import { extractNamesFromText, analyzeScholarPublications, extractProfessorEmailFromScholarHomepage } from './services/geminiService';
 import { fetchScholarPublications } from './services/serpApiService';
 import { Researcher, AnalysisStatus } from './types';
 import { InputSection } from './components/InputSection'; // Keeping for reference until fully replaced
@@ -236,12 +236,26 @@ export default function App() {
             throw new Error("No publications found for this Scholar ID. Please verify the ID correctly matches the professor.");
           }
 
-          // Step 2: Analyze publications with Gemini
-          const result = await analyzeScholarPublications(
-            researcher.name,
-            scholarData,
-            userInterests
-          );
+          const emailPromise = scholarData.website
+            ? extractProfessorEmailFromScholarHomepage(
+                scholarData.website,
+                researcher.name,
+                scholarData.verifiedEmailHint
+              ).catch((emailError) => {
+                console.warn(`Failed to extract homepage email for ${researcher.name}:`, emailError);
+                return {};
+              })
+            : Promise.resolve({});
+
+          // Step 2: Analyze publications with Gemini while extracting homepage email in parallel
+          const [result, homepageEmailResult] = await Promise.all([
+            analyzeScholarPublications(
+              researcher.name,
+              scholarData,
+              userInterests
+            ),
+            emailPromise
+          ]);
 
           // Step 3: Update researcher with results
           setResearchers(prev => prev.map(r => 
@@ -251,6 +265,8 @@ export default function App() {
               interests: result.summary,
               tags: result.keywords,
               profileUrl: `https://scholar.google.com/citations?user=${scholarId}`,
+              homepageUrl: homepageEmailResult.resolvedHomepageUrl || scholarData.website || r.homepageUrl,
+              contactEmail: homepageEmailResult.email || r.contactEmail,
               avatarUrl: scholarData.thumbnail,
               isMatch: result.isMatch,
               matchType: result.matchType,
@@ -295,6 +311,8 @@ export default function App() {
         interests: '',
         tags: [],
         profileUrl: undefined,
+        homepageUrl: undefined,
+        contactEmail: undefined,
         avatarUrl: undefined,
         isMatch: undefined,
         matchType: undefined,
@@ -587,6 +605,9 @@ export default function App() {
                       university={university}
                       onScholarIdLink={handleScholarIdLink}
                       onScholarIdSubmit={handleScholarIdSubmit}
+                      onUpdateResearcher={(id, updates) => {
+                        setResearchers(prev => prev.map(r => (r.id === id ? { ...r, ...updates } : r)));
+                      }}
                       onToggleFavorite={handleToggleFavorite}
                       onDeleteResearcher={handleDeleteResearcher}
                     />

@@ -34,6 +34,8 @@ export interface Researcher {
   name: string;
   status: AnalysisStatus;
   scholarAuthorId?: string;
+  homepageUrl?: string;
+  contactEmail?: string;
   interests?: string;
   tags?: KeywordEvidence[]; // Enhanced with evidence
   profileUrl?: string;

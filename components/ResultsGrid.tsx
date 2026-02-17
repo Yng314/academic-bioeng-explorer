@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Researcher, AnalysisStatus } from '../types';
 import { generateScholarSearchUrl, searchScholarAuthorCandidates, ScholarAuthorCandidate } from '../services/serpApiService';
 import { ExternalLink, User, BrainCircuit, Tag, Sparkles, Search, Clipboard, Star, RotateCw, X } from 'lucide-react';
@@ -8,6 +8,7 @@ interface ResultsGridProps {
   university: string;
   onScholarIdLink: (researcherId: string, scholarId: string) => void;
   onScholarIdSubmit: (researcherId: string, scholarId: string) => void;
+  onUpdateResearcher: (id: string, updates: Partial<Researcher>) => void;
   onToggleFavorite: (id: string) => void;
   onDeleteResearcher: (id: string) => void;
 }
@@ -17,6 +18,7 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({
   university,
   onScholarIdLink,
   onScholarIdSubmit, 
+  onUpdateResearcher,
   onToggleFavorite,
   onDeleteResearcher
 }) => {
@@ -68,6 +70,7 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({
           university={university}
           onScholarIdLink={onScholarIdLink}
           onScholarIdSubmit={onScholarIdSubmit}
+          onUpdateResearcher={onUpdateResearcher}
           onToggleFavorite={onToggleFavorite}
           onDeleteResearcher={onDeleteResearcher}
         />
@@ -143,9 +146,10 @@ const ResearcherCard: React.FC<{
   university: string;
   onScholarIdLink: (researcherId: string, scholarId: string) => void;
   onScholarIdSubmit: (researcherId: string, scholarId: string) => void;
+  onUpdateResearcher: (id: string, updates: Partial<Researcher>) => void;
   onToggleFavorite: (id: string) => void;
   onDeleteResearcher: (id: string) => void;
-}> = ({ data, university, onScholarIdLink, onScholarIdSubmit, onToggleFavorite, onDeleteResearcher }) => {
+}> = ({ data, university, onScholarIdLink, onScholarIdSubmit, onUpdateResearcher, onToggleFavorite, onDeleteResearcher }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [scholarIdInput, setScholarIdInput] = useState('');
   const [isScholarPopoverOpen, setIsScholarPopoverOpen] = useState(false);
@@ -153,6 +157,19 @@ const ResearcherCard: React.FC<{
   const [isSearchingCandidates, setIsSearchingCandidates] = useState(false);
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [authorCandidates, setAuthorCandidates] = useState<ScholarAuthorCandidate[]>([]);
+  const [isManualEmailPopoverOpen, setIsManualEmailPopoverOpen] = useState(false);
+  const [isManualEmailPopoverVisible, setIsManualEmailPopoverVisible] = useState(false);
+  const [manualEmailInput, setManualEmailInput] = useState('');
+  const [manualEmailError, setManualEmailError] = useState<string | null>(null);
+  const manualEmailHideTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (manualEmailHideTimerRef.current !== null) {
+        window.clearTimeout(manualEmailHideTimerRef.current);
+      }
+    };
+  }, []);
   
   const isPending = data.status === AnalysisStatus.PENDING;
   const isAwaitingScholarId = data.status === AnalysisStatus.AWAITING_SCHOLAR_ID;
@@ -169,6 +186,12 @@ const ResearcherCard: React.FC<{
   const handleOpenScholar = () => {
     const url = generateScholarSearchUrl(data.name, data.id, university);
     window.location.href = url;
+  };
+
+  const handleOpenScholarSearch = () => {
+    const query = encodeURIComponent(data.name.trim());
+    const url = `https://scholar.google.com/citations?view_op=search_authors&mauthors=${query}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleSubmitScholarId = (closeModal = false) => {
@@ -207,6 +230,53 @@ const ResearcherCard: React.FC<{
     setIsScholarPopoverOpen(false);
   };
 
+  const handleOpenManualEmailPopover = () => {
+    if (manualEmailHideTimerRef.current !== null) {
+      window.clearTimeout(manualEmailHideTimerRef.current);
+      manualEmailHideTimerRef.current = null;
+    }
+    setManualEmailInput('');
+    setManualEmailError(null);
+    setIsManualEmailPopoverOpen(true);
+    setIsManualEmailPopoverVisible(false);
+    window.requestAnimationFrame(() => {
+      setIsManualEmailPopoverVisible(true);
+    });
+  };
+
+  const handleCloseManualEmailPopover = (immediate = false) => {
+    if (!isManualEmailPopoverOpen) return;
+    if (manualEmailHideTimerRef.current !== null) {
+      window.clearTimeout(manualEmailHideTimerRef.current);
+      manualEmailHideTimerRef.current = null;
+    }
+
+    setIsManualEmailPopoverVisible(false);
+    if (immediate) {
+      setIsManualEmailPopoverOpen(false);
+      return;
+    }
+
+    manualEmailHideTimerRef.current = window.setTimeout(() => {
+      setIsManualEmailPopoverOpen(false);
+      manualEmailHideTimerRef.current = null;
+    }, 160);
+  };
+
+  const handleSaveManualEmail = () => {
+    const trimmed = manualEmailInput.trim().toLowerCase();
+    const emailPattern = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
+    if (!emailPattern.test(trimmed)) {
+      setManualEmailError('Please enter a valid email.');
+      return;
+    }
+
+    onUpdateResearcher(data.id, { contactEmail: trimmed });
+    handleCloseManualEmailPopover();
+    setManualEmailInput('');
+    setManualEmailError(null);
+  };
+
   return (
     <div
       ref={cardRef}
@@ -230,25 +300,25 @@ const ResearcherCard: React.FC<{
 
       {/* Match Badge - Apple Pill Style */}
       {isPerfectMatch && (
-        <div className="absolute top-4 right-12 bg-[#FFD60A]/15 text-[#B8860B] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#FFD60A]/40 flex items-center gap-1 z-10 backdrop-blur-sm">
+        <div className="absolute top-6 right-12 bg-[#FFD60A]/15 text-[#B8860B] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#FFD60A]/40 flex items-center gap-1 z-10 backdrop-blur-sm">
           <Sparkles className="w-3 h-3 fill-current" />
           Perfect Match
         </div>
       )}
       {isHighMatch && (
-        <div className="absolute top-4 right-12 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+        <div className="absolute top-6 right-12 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
           <Sparkles className="w-3 h-3 fill-current" />
           High Match
         </div>
       )}
       {isPartialMatch && (
-        <div className="absolute top-4 right-12 bg-[#34C759]/10 text-[#34C759] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#34C759]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+        <div className="absolute top-6 right-12 bg-[#34C759]/10 text-[#34C759] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#34C759]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
           <Sparkles className="w-3 h-3 fill-current" />
           Partial Match
         </div>
       )}
       {isLowMatch && (
-        <div className="absolute top-4 right-12 bg-[#0071E3]/10 text-[#0071E3] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#0071E3]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+        <div className="absolute top-6 right-12 bg-[#0071E3]/10 text-[#0071E3] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#0071E3]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
           <Sparkles className="w-3 h-3 fill-current" />
           Low Match
         </div>
@@ -282,13 +352,104 @@ const ResearcherCard: React.FC<{
                </div>
              )}
           </div>
-          <div>
-            <h4 className="font-bold text-[#1D1D1F] text-lg leading-tight line-clamp-2 tracking-tight">{data.name}</h4>
-            <div className="flex items-center gap-2 mt-1.5">
-               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${getStatusColor(data.status)}`}>
-                 {getStatusLabel(data.status)}
-               </span>
+          <div className="pt-0.5 relative">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center h-5 text-[10px] font-bold uppercase tracking-wider px-2.5 rounded-full ${getStatusColor(data.status)}`}>
+                {getStatusLabel(data.status)}
+              </span>
             </div>
+            {data.homepageUrl ? (
+              <a
+                href={data.homepageUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="mt-1.5 block font-bold text-[#1D1D1F] text-lg leading-tight line-clamp-2 tracking-tight hover:underline"
+              >
+                {data.name}
+              </a>
+            ) : (
+              <h4 className="mt-1.5 font-bold text-[#1D1D1F] text-lg leading-tight line-clamp-2 tracking-tight">{data.name}</h4>
+            )}
+            {data.contactEmail ? (
+              <a
+                href={`mailto:${data.contactEmail}`}
+                onClick={(event) => event.stopPropagation()}
+                className="mt-1.5 inline-flex text-xs text-[#0071E3] hover:underline break-all"
+              >
+                {data.contactEmail}
+              </a>
+            ) : (
+              isCompleted && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <p className="text-xs text-[#86868B]">No homepage email found</p>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (isManualEmailPopoverOpen) {
+                        handleCloseManualEmailPopover();
+                      } else {
+                        handleOpenManualEmailPopover();
+                      }
+                    }}
+                    className="px-1.5 py-0.5 text-[#0071E3] text-base font-semibold leading-none hover:text-[#0077ED] transition-colors"
+                    title="Add email manually"
+                  >
+                    +
+                  </button>
+                </div>
+              )
+            )}
+            {isManualEmailPopoverOpen && (
+              <div
+                onClick={(event) => event.stopPropagation()}
+                onMouseLeave={() => handleCloseManualEmailPopover()}
+                className={`absolute left-0 top-full mt-2 z-30 w-64 rounded-xl border border-black/10 bg-white shadow-lg p-3 space-y-2 transition-all duration-150 ${
+                  isManualEmailPopoverVisible
+                    ? 'opacity-100 scale-100 translate-y-0'
+                    : 'opacity-0 scale-95 -translate-y-1 pointer-events-none'
+                }`}
+              >
+                <p className="text-[11px] font-semibold text-[#1D1D1F]">Add Email</p>
+                <input
+                  type="email"
+                  value={manualEmailInput}
+                  onChange={(event) => {
+                    setManualEmailInput(event.target.value);
+                    setManualEmailError(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      handleSaveManualEmail();
+                    }
+                  }}
+                  placeholder="name@university.edu"
+                  className="w-full h-8 px-2.5 text-xs bg-[#F5F5F7] border border-black/10 rounded-lg focus:ring-2 focus:ring-[#0071E3]/30 focus:outline-none"
+                />
+                {manualEmailError && (
+                  <p className="text-[11px] text-red-500">{manualEmailError}</p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      handleCloseManualEmailPopover();
+                      setManualEmailInput('');
+                      setManualEmailError(null);
+                    }}
+                    className="px-2.5 py-1 text-[11px] rounded-md border border-black/10 text-[#86868B] hover:bg-[#F5F5F7]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveManualEmail}
+                    className="px-2.5 py-1 text-[11px] rounded-md bg-[#0071E3] text-white hover:bg-[#0077ED]"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -500,12 +661,20 @@ const ResearcherCard: React.FC<{
             </div>
 
             <div className="flex items-center justify-between gap-2">
-              <button
-                onClick={handleOpenScholar}
-                className="px-3 py-1.5 bg-white border border-black/5 rounded-lg text-xs font-medium hover:bg-[#F5F5F7] text-[#1D1D1F] transition-colors"
-              >
-                Open Plugin Search
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleOpenScholar}
+                  className="px-3 py-1.5 bg-white border border-black/5 rounded-lg text-xs font-medium hover:bg-[#F5F5F7] text-[#1D1D1F] transition-colors"
+                >
+                  Open Plugin Search
+                </button>
+                <button
+                  onClick={handleOpenScholarSearch}
+                  className="px-3 py-1.5 bg-white border border-black/5 rounded-lg text-xs font-medium hover:bg-[#F5F5F7] text-[#1D1D1F] transition-colors"
+                >
+                  Open Scholar
+                </button>
+              </div>
               <button
                 onClick={handleOpenScholarPopover}
                 className="px-3 py-1.5 bg-black/5 border border-black/5 rounded-lg text-xs font-medium hover:bg-black/10 text-slate-700 transition-colors"

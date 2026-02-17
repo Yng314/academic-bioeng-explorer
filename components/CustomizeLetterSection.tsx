@@ -1,7 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Researcher, MatchType, EmailStatus } from '../types';
-import { generateCustomizedLetter, reviseCustomizedLetterWithAnnotation } from '../services/geminiService';
-import { Sparkles, Wand2, Eye, FileText, Check, X, Copy, Mail } from 'lucide-react';
+import {
+  generateCustomizedLetter,
+  reviseCustomizedLetterWithAnnotation,
+  DEFAULT_LETTER_MODEL,
+  DEFAULT_LETTER_GENERATION_PROMPT_TEMPLATE,
+  DEFAULT_LETTER_REVISION_PROMPT_TEMPLATE
+} from '../services/geminiService';
+import { Sparkles, Wand2, Eye, FileText, Check, X, Copy, Mail, SlidersHorizontal, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 
 interface CustomizeLetterSectionProps {
   favoriteResearchers: Researcher[];
@@ -34,7 +40,40 @@ interface AnnotationStatusState {
   message: string;
 }
 
+interface LetterAiSettings {
+  model: string;
+  temperature: number | '';
+  topP: number | '';
+  topK: number | '';
+  maxOutputTokens: number | '';
+  generationPromptTemplate: string;
+  revisionPromptTemplate: string;
+}
+
 const ANNOTATION_POPOVER_HIDE_MS = 160;
+const LETTER_AI_SETTINGS_STORAGE_KEY = 'customizeLetterAiSettings';
+const DEFAULT_LETTER_AI_SETTINGS: LetterAiSettings = {
+  model: DEFAULT_LETTER_MODEL,
+  temperature: '',
+  topP: '',
+  topK: '',
+  maxOutputTokens: '',
+  generationPromptTemplate: DEFAULT_LETTER_GENERATION_PROMPT_TEMPLATE,
+  revisionPromptTemplate: DEFAULT_LETTER_REVISION_PROMPT_TEMPLATE
+};
+
+const coerceClampedNumber = (
+  value: unknown,
+  min: number,
+  max: number,
+  integer = false
+): number | '' => {
+  if (value === '' || value === null || value === undefined) return '';
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numericValue)) return '';
+  const clamped = Math.min(max, Math.max(min, numericValue));
+  return integer ? Math.round(clamped) : clamped;
+};
 
 const escapeHtml = (value: string): string =>
   value
@@ -139,6 +178,8 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
   userInterests,
   onUpdateResearcher
 }) => {
+  const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
+  const [letterAiSettings, setLetterAiSettings] = useState<LetterAiSettings>(DEFAULT_LETTER_AI_SETTINGS);
   const [pendingGenerationIds, setPendingGenerationIds] = useState<Set<string>>(new Set());
   const [copyButtonState, setCopyButtonState] = useState<'idle' | 'success' | 'failed'>('idle');
   const [viewLetterId, setViewLetterId] = useState<string | null>(null);
@@ -152,6 +193,89 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
   const letterBodyRef = useRef<HTMLDivElement | null>(null);
   const annotationPopoverRef = useRef<HTMLDivElement | null>(null);
   const annotationHideTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(LETTER_AI_SETTINGS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<LetterAiSettings>;
+      setLetterAiSettings({
+        model: typeof parsed.model === 'string' && parsed.model.trim() ? parsed.model : DEFAULT_LETTER_MODEL,
+        temperature: coerceClampedNumber(parsed.temperature, 0, 2),
+        topP: coerceClampedNumber(parsed.topP, 0, 1),
+        topK: coerceClampedNumber(parsed.topK, 1, 200, true),
+        maxOutputTokens: coerceClampedNumber(parsed.maxOutputTokens, 1, 8192, true),
+        generationPromptTemplate: typeof parsed.generationPromptTemplate === 'string' && parsed.generationPromptTemplate.trim()
+          ? parsed.generationPromptTemplate
+          : DEFAULT_LETTER_GENERATION_PROMPT_TEMPLATE,
+        revisionPromptTemplate: typeof parsed.revisionPromptTemplate === 'string' && parsed.revisionPromptTemplate.trim()
+          ? parsed.revisionPromptTemplate
+          : DEFAULT_LETTER_REVISION_PROMPT_TEMPLATE
+      });
+    } catch (error) {
+      console.error('Failed to load letter AI settings:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(LETTER_AI_SETTINGS_STORAGE_KEY, JSON.stringify(letterAiSettings));
+  }, [letterAiSettings]);
+
+  const handleModelSettingChange = (value: string) => {
+    setLetterAiSettings(prev => ({
+      ...prev,
+      model: value
+    }));
+  };
+
+  const handlePromptSettingChange = (
+    key: 'generationPromptTemplate' | 'revisionPromptTemplate',
+    value: string
+  ) => {
+    setLetterAiSettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleNumericSettingChange = (
+    key: 'temperature' | 'topP' | 'topK' | 'maxOutputTokens',
+    value: string
+  ) => {
+    if (value.trim() === '') {
+      setLetterAiSettings(prev => ({ ...prev, [key]: '' }));
+      return;
+    }
+
+    switch (key) {
+      case 'temperature':
+        setLetterAiSettings(prev => ({ ...prev, temperature: coerceClampedNumber(value, 0, 2) }));
+        return;
+      case 'topP':
+        setLetterAiSettings(prev => ({ ...prev, topP: coerceClampedNumber(value, 0, 1) }));
+        return;
+      case 'topK':
+        setLetterAiSettings(prev => ({ ...prev, topK: coerceClampedNumber(value, 1, 200, true) }));
+        return;
+      case 'maxOutputTokens':
+        setLetterAiSettings(prev => ({ ...prev, maxOutputTokens: coerceClampedNumber(value, 1, 8192, true) }));
+        return;
+    }
+  };
+
+  const resetLetterAiSettings = () => {
+    setLetterAiSettings(DEFAULT_LETTER_AI_SETTINGS);
+  };
+
+  const buildLetterModelOptions = () => ({
+    model: letterAiSettings.model.trim() || DEFAULT_LETTER_MODEL,
+    temperature: typeof letterAiSettings.temperature === 'number' ? letterAiSettings.temperature : undefined,
+    topP: typeof letterAiSettings.topP === 'number' ? letterAiSettings.topP : undefined,
+    topK: typeof letterAiSettings.topK === 'number' ? letterAiSettings.topK : undefined,
+    maxOutputTokens: typeof letterAiSettings.maxOutputTokens === 'number' ? letterAiSettings.maxOutputTokens : undefined
+  });
 
   const clearAnnotationHideTimer = () => {
     if (annotationHideTimerRef.current !== null) {
@@ -254,6 +378,19 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
     }
   };
 
+  const handleSendEmail = async (researcher: Researcher) => {
+    const subject = emailTitle || 'Inquiry regarding your research - academic-outreach-explorer';
+    const body = researcher.customizedLetter || '';
+    const recipient = researcher.contactEmail?.trim() || '';
+    const mailtoLink = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    // Keep mailto launch in the same user gesture to avoid browser blocking.
+    void handleCopyRichText(body).catch((error) => {
+      console.error('Copy before send failed:', error);
+    });
+    window.location.href = mailtoLink;
+  };
+
   const handleCustomize = (researcher: Researcher) => {
     if (!letterTemplate.trim()) {
       alert("Please define your Letter Template in 'My Profile' first.");
@@ -269,7 +406,10 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
 
     generationQueueRef.current = generationQueueRef.current.then(async () => {
       try {
-        const customLetter = await generateCustomizedLetter(letterTemplate, researcher, userInterests);
+        const customLetter = await generateCustomizedLetter(letterTemplate, researcher, userInterests, {
+          ...buildLetterModelOptions(),
+          promptTemplate: letterAiSettings.generationPromptTemplate
+        });
         onUpdateResearcher(researcher.id, { customizedLetter: customLetter });
 
         if (viewLetterId === researcher.id) {
@@ -386,7 +526,11 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
           annotationPopover.selectedText,
           annotationNote,
           selectedResearcherForView,
-          userInterests
+          userInterests,
+          {
+            ...buildLetterModelOptions(),
+            promptTemplate: letterAiSettings.revisionPromptTemplate
+          }
         );
 
         if (revisedLetter.trim() === currentLetter.trim()) {
@@ -508,6 +652,159 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
 
   return (
     <div className="w-full max-w-7xl mx-auto px-6 pt-6 pb-20 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+      <div className="bg-white rounded-[24px] border border-black/5 p-5 shadow-apple">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-[#1D1D1F] flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-[#0071E3]" />
+              AI Prompt & Parameters
+            </h3>
+            <p className="text-xs text-[#86868B] mt-1">
+              Edit generation/revision prompts and optional Gemini sampling settings.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resetLetterAiSettings}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-black/10 text-xs font-medium text-[#424245] hover:bg-[#F5F5F7] transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset Defaults
+            </button>
+            <button
+              onClick={() => setIsAiSettingsOpen(prev => !prev)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0071E3] text-white text-xs font-semibold hover:bg-[#0077ED] transition-colors"
+            >
+              {isAiSettingsOpen ? (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  Hide
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  Configure
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {isAiSettingsOpen && (
+          <div className="mt-4 pt-4 border-t border-black/5 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wide">Model</span>
+                <input
+                  type="text"
+                  value={letterAiSettings.model}
+                  onChange={(event) => handleModelSettingChange(event.target.value)}
+                  placeholder="gemini-3-pro-preview"
+                  className="h-9 rounded-lg border border-black/10 px-3 text-sm text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wide">Temperature (0-2)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={2}
+                  step={0.1}
+                  value={letterAiSettings.temperature}
+                  onChange={(event) => handleNumericSettingChange('temperature', event.target.value)}
+                  placeholder="default"
+                  className="h-9 rounded-lg border border-black/10 px-3 text-sm text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wide">Top P (0-1)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={letterAiSettings.topP}
+                  onChange={(event) => handleNumericSettingChange('topP', event.target.value)}
+                  placeholder="default"
+                  className="h-9 rounded-lg border border-black/10 px-3 text-sm text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wide">Top K</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  step={1}
+                  value={letterAiSettings.topK}
+                  onChange={(event) => handleNumericSettingChange('topK', event.target.value)}
+                  placeholder="default"
+                  className="h-9 rounded-lg border border-black/10 px-3 text-sm text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wide">Max Output</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={8192}
+                  step={1}
+                  value={letterAiSettings.maxOutputTokens}
+                  onChange={(event) => handleNumericSettingChange('maxOutputTokens', event.target.value)}
+                  placeholder="default"
+                  className="h-9 rounded-lg border border-black/10 px-3 text-sm text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wide">Generation Prompt</span>
+                <textarea
+                  value={letterAiSettings.generationPromptTemplate}
+                  onChange={(event) => handlePromptSettingChange('generationPromptTemplate', event.target.value)}
+                  rows={12}
+                  className="rounded-lg border border-black/10 px-3 py-2 text-xs leading-relaxed text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-[#86868B] uppercase tracking-wide">Revision Prompt</span>
+                <textarea
+                  value={letterAiSettings.revisionPromptTemplate}
+                  onChange={(event) => handlePromptSettingChange('revisionPromptTemplate', event.target.value)}
+                  rows={12}
+                  className="rounded-lg border border-black/10 px-3 py-2 text-xs leading-relaxed text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30"
+                />
+              </label>
+            </div>
+
+            <p className="text-[11px] text-[#86868B] leading-relaxed">
+              Placeholders:
+              {' '}
+              <code>{'{{professor_name}}'}</code>
+              {' '}
+              <code>{'{{professor_last_name}}'}</code>
+              {' '}
+              <code>{'{{student_template}}'}</code>
+              {' '}
+              <code>{'{{user_interests}}'}</code>
+              {' '}
+              <code>{'{{researcher_themes}}'}</code>
+              {' '}
+              <code>{'{{researcher_summary}}'}</code>
+              {' '}
+              <code>{'{{intersection_keywords}}'}</code>
+              {' '}
+              <code>{'{{current_letter}}'}</code>
+              {' '}
+              <code>{'{{selected_text}}'}</code>
+              {' '}
+              <code>{'{{annotation}}'}</code>
+              .
+            </p>
+          </div>
+        )}
+      </div>
 
       {favoriteResearchers.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-[24px] border border-dashed border-slate-300">
@@ -528,25 +825,25 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
             return (
               <div key={researcher.id} className="relative flex flex-col h-full bg-white rounded-[24px] shadow-apple hover:shadow-apple-hover border border-black/5 transition-all duration-300">
                 {researcher.matchType === MatchType.PERFECT && (
-                  <div className="absolute top-4 right-12 bg-[#FFD60A]/15 text-[#B8860B] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#FFD60A]/40 flex items-center gap-1 z-10 backdrop-blur-sm">
+                  <div className="absolute top-6 right-12 bg-[#FFD60A]/15 text-[#B8860B] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#FFD60A]/40 flex items-center gap-1 z-10 backdrop-blur-sm">
                     <Sparkles className="w-3 h-3 fill-current" />
                     Perfect Match
                   </div>
                 )}
                 {researcher.matchType === MatchType.HIGH && (
-                  <div className="absolute top-4 right-12 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+                  <div className="absolute top-6 right-12 bg-[#AF52DE]/10 text-[#AF52DE] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#AF52DE]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
                     <Sparkles className="w-3 h-3 fill-current" />
                     High Match
                   </div>
                 )}
                 {researcher.matchType === MatchType.PARTIAL && (
-                  <div className="absolute top-4 right-12 bg-[#34C759]/10 text-[#34C759] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#34C759]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+                  <div className="absolute top-6 right-12 bg-[#34C759]/10 text-[#34C759] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#34C759]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
                     <Sparkles className="w-3 h-3 fill-current" />
                     Partial Match
                   </div>
                 )}
                 {researcher.matchType === MatchType.LOW && (
-                  <div className="absolute top-4 right-12 bg-[#0071E3]/10 text-[#0071E3] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#0071E3]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
+                  <div className="absolute top-6 right-12 bg-[#0071E3]/10 text-[#0071E3] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-[#0071E3]/20 flex items-center gap-1 z-10 backdrop-blur-sm">
                     <Sparkles className="w-3 h-3 fill-current" />
                     Low Match
                   </div>
@@ -567,15 +864,26 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
                         </div>
                       )}
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-[#1D1D1F] leading-tight tracking-tight">
-                        {researcher.name}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${getEmailStatusColor(researcher.emailStatus || EmailStatus.NOT_SENT)}`}>
+                    <div className="pt-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center h-5 text-[10px] font-bold uppercase tracking-wider px-2.5 rounded-full ${getEmailStatusColor(researcher.emailStatus || EmailStatus.NOT_SENT)}`}>
                           {getEmailStatusLabel(researcher.emailStatus || EmailStatus.NOT_SENT)}
                         </span>
                       </div>
+                      {researcher.homepageUrl ? (
+                        <a
+                          href={researcher.homepageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1.5 block text-lg font-bold text-[#1D1D1F] leading-tight tracking-tight hover:underline"
+                        >
+                          {researcher.name}
+                        </a>
+                      ) : (
+                        <h3 className="mt-1.5 text-lg font-bold text-[#1D1D1F] leading-tight tracking-tight">
+                          {researcher.name}
+                        </h3>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -654,6 +962,11 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
                 <p className="text-[11px] text-[#86868B] mt-1">
                   Select text, annotate, then review red/green change with ✓ or ✕.
                 </p>
+                {selectedResearcherForView.contactEmail && (
+                  <p className="text-[11px] text-[#0071E3] mt-1">
+                    Detected email: {selectedResearcherForView.contactEmail}
+                  </p>
+                )}
                 {annotationStatus && (
                   <p className={`text-[11px] mt-1.5 ${
                     annotationStatus.tone === 'success'
@@ -686,12 +999,7 @@ export const CustomizeLetterSection: React.FC<CustomizeLetterSectionProps> = ({
 
             <div className="px-6 py-4 flex justify-end gap-3 relative">
               <button
-                onClick={() => {
-                  const subject = emailTitle || 'Inquiry regarding your research - academic-outreach-explorer';
-                  const body = selectedResearcherForView.customizedLetter || '';
-                  const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                  window.location.href = mailtoLink;
-                }}
+                onClick={() => handleSendEmail(selectedResearcherForView)}
                 className="flex items-center gap-2 px-4 py-2 bg-[#0071E3] text-white rounded-lg text-sm font-medium hover:bg-[#0077ED] transition-colors shadow-sm"
               >
                 <Mail className="w-4 h-4" />

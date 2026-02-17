@@ -13,6 +13,8 @@ export interface ScholarPublication {
 export interface ScholarAuthorData {
   name: string;
   affiliations?: string;
+  website?: string;
+  verifiedEmailHint?: string;
   articles: ScholarPublication[];
   cited_by?: {
     table: Array<{ citations: { all: number } }>;
@@ -69,6 +71,8 @@ export async function fetchScholarPublications(authorId: string): Promise<Schola
     return {
       name: data.author?.name || 'Unknown',
       affiliations: data.author?.affiliations || '',
+      website: data.author?.website || '',
+      verifiedEmailHint: data.author?.email || '',
       articles: data.articles || [],
       cited_by: data.cited_by,
       thumbnail: isDefaultAvatar ? undefined : thumbnail

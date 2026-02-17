@@ -21,6 +21,11 @@ export default defineConfig(({ mode }) => {
                 proxyReq.path = url.pathname + url.search;
               });
             }
+          },
+          '/api/jina': {
+            target: 'https://r.jina.ai',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api\/jina/, '')
           }
         }
       },
